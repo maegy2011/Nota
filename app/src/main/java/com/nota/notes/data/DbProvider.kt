@@ -1,0 +1,19 @@
+package com.nota.notes.data
+
+import android.content.Context
+import androidx.room.Room
+import net.sqlcipher.database.SQLiteDatabase
+import net.sqlcipher.database.SupportFactory
+
+object DbProvider {
+    // SQLCipher — passphrase من Keystore/DataStore، لا تُكتب plain
+    fun open(ctx: Context, passphrase: ByteArray): NoteDatabase {
+        SQLiteDatabase.loadLibs(ctx)
+        val factory = SupportFactory(passphrase)
+        return Room.databaseBuilder(ctx, NoteDatabase::class.java, "nota.db")
+            .openHelperFactory(factory)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+            .build()
+    }
+}
+

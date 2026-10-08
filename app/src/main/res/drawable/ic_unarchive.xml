@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- استعادة من الأرشيف: صندوق + سهم صاعد — يُلوَّن tint عند الاستخدام -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,1l5,5h-3v3h-4V6H7z" />
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M4,11h16v9H4z M9,15h6v2H9z" />
+</vector>

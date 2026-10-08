@@ -1,0 +1,29 @@
+# Build artifacts
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+
+# Secrets — never commit
+google-services.json
+local.properties
+keys/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+
+# Internal dev files
+.review/
+backups/
+redesign/
+scripts/
+PRODUCT_RULES.md
+DATA_SAFETY_AUDIT_REPORT.md
+docs/roadmap-premium.md

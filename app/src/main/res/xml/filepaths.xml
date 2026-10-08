@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- مشاركة ملف النسخة الاحتياطية (.nota) من الكاش فقط -->
+    <cache-path name="backup" path="backups/" />
+    <!-- مشاركة الملاحظة كمستند PDF من الكاش فقط -->
+    <cache-path name="pdf" path="pdf/" />
+    <!-- عرض صور الملاحظة في العارض الخارجي + استقبال صورة الكاميرا (ملفات داخلية فقط) -->
+    <files-path name="media" path="note_media/" />
+    <!-- نسخة مؤقتة مفكوكة للعارض الخارجي فقط (فعل مشاركة صريح) — تُستبدل مع كل عرض -->
+    <cache-path name="shared_tmp" path="shared_tmp/" />
+</paths>
