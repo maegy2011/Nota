@@ -23,23 +23,23 @@
 
 <p align="center">
   <strong>Language:</strong>
-  <a href="#english">English</a> ·
-  <a href="#العربية">العربية</a> ·
-  <a href="#русский">Русский</a> ·
-  <a href="#हिन्दी">हिन्दी</a> ·
-  <a href="#italiano">Italiano</a> ·
-  <a href="#日本語">日本語</a> ·
-  <a href="#中文">中文</a> ·
-  <a href="#français">Français</a> ·
-  <a href="#español">Español</a> ·
-  <a href="#türkçe">Türkçe</a> ·
-  <a href="#bahasa-melayu">Bahasa Melayu</a> ·
-  <a href="#deutsch">Deutsch</a> ·
-  <a href="#اردو">اردو</a> ·
-  <a href="#polski">Polski</a> ·
-  <a href="#українська">Українська</a> ·
-  <a href="#português">Português</a> ·
-  <a href="#nederlands">Nederlands</a>
+  <a href="https://github.com/maegy2011/Nota#english">English</a> ·
+  <a href="https://github.com/maegy2011/Nota#العربية">العربية</a> ·
+  <a href="https://github.com/maegy2011/Nota#русский">Русский</a> ·
+  <a href="https://github.com/maegy2011/Nota#हिन्दी">हिन्दी</a> ·
+  <a href="https://github.com/maegy2011/Nota#italiano">Italiano</a> ·
+  <a href="https://github.com/maegy2011/Nota#日本語">日本語</a> ·
+  <a href="https://github.com/maegy2011/Nota#中文">中文</a> ·
+  <a href="https://github.com/maegy2011/Nota#français">Français</a> ·
+  <a href="https://github.com/maegy2011/Nota#español">Español</a> ·
+  <a href="https://github.com/maegy2011/Nota#türkçe">Türkçe</a> ·
+  <a href="https://github.com/maegy2011/Nota#bahasa-melayu">Bahasa Melayu</a> ·
+  <a href="https://github.com/maegy2011/Nota#deutsch">Deutsch</a> ·
+  <a href="https://github.com/maegy2011/Nota#اردو">اردو</a> ·
+  <a href="https://github.com/maegy2011/Nota#polski">Polski</a> ·
+  <a href="https://github.com/maegy2011/Nota#українська">Українська</a> ·
+  <a href="https://github.com/maegy2011/Nota#português">Português</a> ·
+  <a href="https://github.com/maegy2011/Nota#nederlands">Nederlands</a>
 </p>
 
 ---
