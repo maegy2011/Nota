@@ -1,25 +1,118 @@
 # Nota — نوتا
 
-ملاحظات عربية offline مشفرة — نص فقط + بحث + أرشيف + قفل بيومتريك/PIN + نسخة احتياطية مشفرة بكلمة مرور.
+<p align="center">
+  <img src="app/src/main/res/mipmap-anydpi-v26/ic_launcher.png" width="120" alt="Nota Logo"/>
+</p>
 
-- المواصفة: `docs/SPEC-V1.md`
-- التقنية: Kotlin + Compose + Room + SQLCipher + DataStore + Hilt + Biometric
-- minSdk 26 — targetSdk 35 — R8 من أول release
+<p align="center">
+  <strong>Arabic Offline Encrypted Notes</strong><br/>
+  Private. Secure. Beautiful.
+</p>
 
-## الهيكل
+<p align="center">
+  <a href="https://github.com/maegy2011/Nota/releases/latest">
+    <img src="https://img.shields.io/github/v/release/maegy2011/Nota?include_prerleases&style=flat-square" alt="Release"/>
+  </a>
+  <a href="https://github.com/maegy2011/Nota/stargazers">
+    <img src="https://img.shields.io/github/stars/maegy2011/Nota?style=flat-square" alt="Stars"/>
+  </a>
+  <a href="https://github.com/maegy2011/Nota/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/maegy2011/Nota?style=flat-square" alt="License"/>
+  </a>
+</p>
 
-- `app/` — كود التطبيق (المواصفة: package `com.nota.notes`)
-- `docs/` — المواصفة وملفات التوثيق
-- `keys/` — مفتاح التوقيع (`nota-release.keystore` — نفس المفتاح لكل التحديثات)
-- `releases/` — نسخ APK النهائية
-- `scripts/` — سكريبتات مساعدة (`build-safe.sh` للبناء المقيد)
+---
 
-## البناء
+## Download
 
-عبر طابور البناء المشترك (بناء واحد في المرة):
+<p align="center">
+  <a href="https://github.com/maegy2011/Nota/releases/latest">
+    <img src="https://img.shields.io/badge/Download-Latest%20APK-blue?style=for-the-badge&logo=android" alt="Download APK"/>
+  </a>
+</p>
+
+**Direct:** [Nota-latest.apk](https://github.com/maegy2011/Nota/releases/latest)
+
+---
+
+## Features
+
+| Feature | Free | Pro |
+|---|---|---|
+| Unlimited encrypted notes | ✅ | ✅ |
+| Full-text search | ✅ | ✅ |
+| Biometric / PIN lock | ✅ | ✅ |
+| Markdown editor | ✅ | ✅ |
+| Folders & tags | 🔒 | ✅ |
+| Reminders | 🔒 | ✅ |
+| Cloud backup | 🔒 | ✅ |
+| Custom themes (10 Pro themes) | 🔒 | ✅ |
+| AI rewrite | 🔒 | ✅ |
+| Secure shred (permanent delete) | 🔒 | ✅ |
+| Home screen widget | 🔒 | ✅ |
+| PDF export | 🔒 | ✅ |
+
+---
+
+## Screenshots
+
+<p align="center">
+  <em>Screenshots coming soon</em>
+</p>
+
+---
+
+## Security
+
+- **SQLCipher** — AES-256 encrypted local database
+- **Biometric auth** — fingerprint / face unlock
+- **PIN fallback** — secure PIN with hashing
+- **No data leaves your device** — fully offline by default
+- **Encrypted cloud backup** — optional, password-protected
+- **Secure shred** — overwrite and permanently delete sensitive notes
+- **Root detection** — warns on rooted devices
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Kotlin 2.0 |
+| UI | Jetpack Compose + Material 3 |
+| Database | Room + SQLCipher |
+| DI | Hilt |
+| Auth | Google Sign-In + Firebase |
+| Billing | Google Play Billing |
+| Min SDK | 26 (Android 8.0) |
+| Target SDK | 35 (Android 15) |
+
+---
+
+## Building
 
 ```bash
-cd /home/administrator/.openclaw/workspace && ./build.sh <أمر البناء>
+git clone https://github.com/maegy2011/Nota.git
+cd Nota
+./gradlew assembleDebug
 ```
 
-النشر: `https://mohamedadel.cfd/nota/Nota-v1.0.apk` + `Nota-latest.apk` — nginx `/nota/` ← `/var/www/nota/downloads/`
+**Requirements:** JDK 17+, Android SDK 35
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) first.
+
+---
+
+## License
+
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/maegy2011">maegy2011</a></sub>
+</p>
