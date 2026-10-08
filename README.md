@@ -22,6 +22,7 @@
 </p>
 
 <p align="center">
+  <strong>Language:</strong>
   <a href="#english">English</a> ·
   <a href="#العربية">العربية</a> ·
   <a href="#русский">Русский</a> ·
@@ -105,7 +106,8 @@ cd Nota
 
 ---
 
-## العربية
+<details>
+<summary><b>العربية</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -152,9 +154,10 @@ cd Nota
 
 **المتطلبات:** JDK 17+، Android SDK 35
 
----
+</details>
 
-## Русский
+<details>
+<summary><b>Русский</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -201,9 +204,10 @@ cd Nota
 
 **Требования:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## हिन्दी
+<details>
+<summary><b>हिन्दी</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -250,9 +254,10 @@ cd Nota
 
 **आवश्यकताएँ:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Italiano
+<details>
+<summary><b>Italiano</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -299,9 +304,10 @@ cd Nota
 
 **Requisiti:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## 日本語
+<details>
+<summary><b>日本語</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -348,9 +354,10 @@ cd Nota
 
 **要件:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## 中文
+<details>
+<summary><b>中文</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -397,9 +404,10 @@ cd Nota
 
 **要求：** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Français
+<details>
+<summary><b>Français</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -446,9 +454,10 @@ cd Nota
 
 **Prérequis :** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Español
+<details>
+<summary><b>Español</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -495,9 +504,10 @@ cd Nota
 
 **Requisitos:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Türkçe
+<details>
+<summary><b>Türkçe</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -544,9 +554,10 @@ cd Nota
 
 **Gereksinimler:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Bahasa Melayu
+<details>
+<summary><b>Bahasa Melayu</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -591,9 +602,10 @@ cd Nota
 
 **Keperluan:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Deutsch
+<details>
+<summary><b>Deutsch</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -640,9 +652,10 @@ cd Nota
 
 **Anforderungen:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## اردو
+<details>
+<summary><b>اردو</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -689,9 +702,10 @@ cd Nota
 
 **ضروریات:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Polski
+<details>
+<summary><b>Polski</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -733,18 +747,19 @@ cd Nota
 ```bash
 git clone https://github.com/maegy2011/Nota.git
 cd Nota
-./gradlew assembleDebug`
+./gradlew assembleDebug
 ```
 
 **Wymagania:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Українська
+<details>
+<summary><b>Українська</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
-    <img src="https://img.shields/io/badge/Завантажити-Останній%20APK-blue?style=for-the-badge&logo=android" alt="Завантажити"/>
+    <img src="https://img.shields.io/badge/Завантажити-Останній%20APK-blue?style=for-the-badge&logo=android" alt="Завантажити"/>
   </a>
 </p>
 
@@ -787,9 +802,10 @@ cd Nota
 
 **Вимоги:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Português
+<details>
+<summary><b>Português</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -836,9 +852,10 @@ cd Nota
 
 **Requisitos:** JDK 17+, Android SDK 35
 
----
+</details>
 
-## Nederlands
+<details>
+<summary><b>Nederlands</b></summary>
 
 <p align="center">
   <a href="https://github.com/maegy2011/Nota/releases/latest">
@@ -885,6 +902,8 @@ cd Nota
 
 **Vereisten:** JDK 17+, Android SDK 35
 
+</details>
+
 ---
 
 ## Contributing
@@ -893,7 +912,7 @@ Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTIN
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+This project is licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE) for details.
 
 ---
 
