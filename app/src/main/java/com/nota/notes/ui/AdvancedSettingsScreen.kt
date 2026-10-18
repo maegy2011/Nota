@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.fragment.app.FragmentActivity
 import com.nota.notes.R
 import com.nota.notes.data.BackupManager
 import com.nota.notes.data.SettingsStore
@@ -104,20 +106,57 @@ fun FontOption(value: String, label: String, selected: String, onPick: (String) 
     }
 }
 
-// تغيير PIN على 3 خطوات: زر → تحقق من الحالي → إدخال الجديد (SetPinScreen) → حفظ
+// تغيير PIN على 3 خطوات: زر → تحقق من الحالي (أو استرداد بالبصمة) → إدخال الجديد (SetPinScreen) → حفظ
 @Composable
 fun ChangePinBlock(authVm: AuthViewModel) {
     var step by remember { mutableIntStateOf(0) } // 0 زر، 1 تحقق، 2 جديد، 3 تم
     var current by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
     var lockMsg by remember { mutableStateOf<String?>(null) }
+    var recoverMsg by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
+    val activity = ctx as? FragmentActivity
+    val bioAvailable = authVm.canBiometric() && activity != null
+    // بطاقة توصية لمرة واحدة: PIN قصير (< 6) أو مجهول الطول (مستخدم قديم) ولم تُسقط بعد
+    val pinMin6Ok by authVm.pinMin6Ok.collectAsState()
+    val pinCardDismissed by authVm.pinCardDismissed.collectAsState()
+    val showUpgradeCard = step == 0 && pinMin6Ok != true && !pinCardDismissed
     when (step) {
-        0 -> Button(
-            onClick = { step = 1; authVm.touch() },
-            modifier = Modifier.padding(top = 8.dp)
-        ) { Text(stringResource(R.string.changepin_open)) }
+        0 -> Column(Modifier.padding(top = 8.dp)) {
+            if (showUpgradeCard) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(
+                            stringResource(R.string.pin_upgrade_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Text(
+                            stringResource(R.string.pin_upgrade_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            TextButton(onClick = { step = 1; authVm.touch() }) {
+                                Text(stringResource(R.string.pin_upgrade_now))
+                            }
+                            TextButton(onClick = { authVm.dismissPinCard() }) {
+                                Text(stringResource(R.string.pin_upgrade_later))
+                            }
+                        }
+                    }
+                }
+            }
+            Button(
+                onClick = { step = 1; authVm.touch() }
+            ) { Text(stringResource(R.string.changepin_open)) }
+        }
         1 -> Column(Modifier.padding(top = 8.dp)) {
             // اللوحة الواحدة هنا أيضًا — بلا كيبورد نظام + زر تحقق يدوي
             PinPad(
@@ -135,6 +174,32 @@ fun ChangePinBlock(authVm: AuthViewModel) {
             if (lockMsg != null) {
                 Text(
                     lockMsg!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            // مسار استرداد: البصمة الناجحة = مالك شرعي فيُتجاوز إدخال الحالي — الفشل رسالة عامة بلا تفاصيل
+            if (bioAvailable) {
+                TextButton(
+                    onClick = {
+                        activity?.let { a ->
+                            authVm.promptBiometric(
+                                a,
+                                onOk = {
+                                    authVm.biometricOk()
+                                    step = 2; current = ""; error = false; lockMsg = null; recoverMsg = null
+                                },
+                                onErr = { recoverMsg = ctx.getString(R.string.pin_recover_fail) }
+                            )
+                        }
+                    },
+                    modifier = Modifier.padding(top = 4.dp)
+                ) { Text(stringResource(R.string.pin_recover_forgot)) }
+            }
+            if (recoverMsg != null) {
+                Text(
+                    recoverMsg!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
@@ -162,7 +227,7 @@ fun ChangePinBlock(authVm: AuthViewModel) {
             ) { Text(stringResource(R.string.verify_btn)) }
         }
         2 -> SetPinScreen(onDone = { newPin ->
-            authVm.changePin(newPin) { step = 3 }
+            authVm.changePin(newPin) { Haptics.confirm(ctx); step = 3 }
         })
         else -> {
             Text(

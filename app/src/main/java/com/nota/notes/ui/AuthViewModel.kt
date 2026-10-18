@@ -21,12 +21,24 @@ class AuthViewModel @Inject constructor(
     val loaded: StateFlow<Boolean> = _loaded
     private val _pinHash = MutableStateFlow<String?>(null)
     val pinHash: StateFlow<String?> = _pinHash
+    // تتبع طول PIN: true = 6+، false = قصير، null = مستخدم قديم (مجهول) — لبطاقة التوصية لمرة واحدة
+    private val _pinMin6Ok = MutableStateFlow<Boolean?>(null)
+    val pinMin6Ok: StateFlow<Boolean?> = _pinMin6Ok
+    private val _pinCardDismissed = MutableStateFlow(false)
+    val pinCardDismissed: StateFlow<Boolean> = _pinCardDismissed
 
     init {
         viewModelScope.launch {
             _pinHash.value = store.readPinHash()
+            _pinMin6Ok.value = store.readPinMin6()
+            _pinCardDismissed.value = store.pinCardDismissed()
             _loaded.value = true
         }
+    }
+
+    fun dismissPinCard() = viewModelScope.launch {
+        store.dismissPinCard()
+        _pinCardDismissed.value = true
     }
 
     // نتيجة التحقق: نجاح | غلط | مقفل مؤقتًا (ضد التخمين) — تُستهلك من كوروتين
@@ -70,6 +82,8 @@ class AuthViewModel @Inject constructor(
         val salt = store.getOrCreatePinSalt()
         val hash = PinHash.hash(pin, salt)
         store.savePinHashFull(hash)
+        store.savePinMin6(pin.length >= 6)
+        _pinMin6Ok.value = pin.length >= 6
         _pinHash.value = store.readPinHash()
         auth.unlockWithPin(pin, _pinHash.value ?: return@launch)
         _freshSetup.value = true
@@ -93,7 +107,8 @@ class AuthViewModel @Inject constructor(
         val salt = store.getOrCreatePinSalt()
         val hash = PinHash.hash(pin, salt)
         store.savePinHashFull(hash)
-        _pinHash.value = store.readPinHash()
+        store.savePinMin6(pin.length >= 6)
+        _pinMin6Ok.value = pin.length >= 6
         onDone()
     }
 

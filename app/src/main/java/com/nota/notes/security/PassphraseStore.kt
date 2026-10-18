@@ -29,6 +29,9 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
     private val K_PIN = stringPreferencesKey("pin_hash")
     private val K_FAILS = androidx.datastore.preferences.core.intPreferencesKey("pin_fails")
     private val K_LOCK_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("pin_lock_until")
+    // تتبع طول PIN (6+ أم لا) + إسقاط بطاقة التوصية — بلا تخزين الطول نفسه
+    private val K_PIN_MIN6 = androidx.datastore.preferences.core.booleanPreferencesKey("pin_min6_ok")
+    private val K_PIN_CARD_DISMISSED = androidx.datastore.preferences.core.booleanPreferencesKey("pin_card_dismissed")
 
     // قراءة متسامحة: تلف ملف واحد لا يمنع تجربة النسخة المستقلة الأخرى.
     private suspend fun readSecure(): Preferences? = try {
@@ -148,6 +151,21 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
 
     suspend fun resetPinFails() = pinMutex.withLock {
         ctx.secureStore.edit { it[K_FAILS] = 0; it[K_LOCK_UNTIL] = 0L }
+    }
+
+    // هل الـ PIN الحالي 6 أرقام فأكثر؟ null = مستخدم قديم قبل التتبع (الطول مجهول من الـ hash)
+    suspend fun savePinMin6(ok: Boolean) {
+        ctx.secureStore.edit { it[K_PIN_MIN6] = ok }
+    }
+
+    suspend fun readPinMin6(): Boolean? =
+        ctx.secureStore.data.map { it[K_PIN_MIN6] }.first()
+
+    suspend fun pinCardDismissed(): Boolean =
+        ctx.secureStore.data.map { it[K_PIN_CARD_DISMISSED] ?: false }.first()
+
+    suspend fun dismissPinCard() {
+        ctx.secureStore.edit { it[K_PIN_CARD_DISMISSED] = true }
     }
 
     private fun aesEncrypt(plain: ByteArray): Pair<ByteArray, ByteArray> {

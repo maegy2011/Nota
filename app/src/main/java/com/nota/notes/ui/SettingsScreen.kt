@@ -149,6 +149,15 @@ fun SettingsScreen(
                     onCheckedChange = onBiometric
                 )
             }
+            // تحذير تعطيل البصمة: الـ PIN يبقى الطريق الوحيد — يُعرض عند التفعيل فقط
+            if (biometricEnabled && biometricAvailable) {
+                Text(
+                    stringResource(R.string.bio_disable_warn),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
             Text(
                 stringResource(R.string.autolock_title),
                 style = MaterialTheme.typography.bodyMedium,

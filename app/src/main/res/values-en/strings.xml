@@ -165,7 +165,15 @@
     <string name="unlock_bio">Quick biometric unlock</string>
     <string name="pin_label">Or type your PIN</string>
     <string name="unlock_pin">Unlock</string>
-    <string name="pin_short">PIN needs at least 4 digits</string>
+    <string name="pin_short">PIN needs at least 6 digits</string>
+    <string name="pin_recover_forgot">Forgot PIN? Recover with biometrics</string>
+    <string name="pin_recover_fail">Couldn\'t verify — try again</string>
+    <string name="setpin_norecover_warn">⚠️ Save your PIN somewhere safe — it can\'t be recovered</string>
+    <string name="bio_disable_warn">Turning biometrics off leaves PIN as your only unlock — keep it safe</string>
+    <string name="pin_upgrade_title">PIN shorter than recommended</string>
+    <string name="pin_upgrade_sub">Your current PIN is under 6 digits — we recommend strengthening it</string>
+    <string name="pin_upgrade_now">Strengthen now</string>
+    <string name="pin_upgrade_later">Later</string>
     <string name="pin_wrong">Try again</string>
     <string name="setpin_title">Create your PIN</string>
     <string name="setpin_sub">4 to 8 digits — plus biometrics for one-second unlock</string>

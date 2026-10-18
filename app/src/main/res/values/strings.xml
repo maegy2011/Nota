@@ -165,7 +165,15 @@
     <string name="unlock_bio">فتح بالبيومتريك</string>
     <string name="pin_label">أو أدخل PIN</string>
     <string name="unlock_pin">فتح بالـ PIN</string>
-    <string name="pin_short">PIN لا يقل عن 4 أرقام</string>
+    <string name="pin_short">PIN لا يقل عن 6 أرقام</string>
+    <string name="pin_recover_forgot">نسيت PIN؟ استرداد بالبصمة</string>
+    <string name="pin_recover_fail">تعذر التحقق — حاول مجددًا</string>
+    <string name="setpin_norecover_warn">⚠️ احفظ PIN في مكان آمن — لا توجد طريقة لاسترداده</string>
+    <string name="bio_disable_warn">إيقاف البصمة يجعل PIN طريقتك الوحيدة للفتح — احفظه جيدًا</string>
+    <string name="pin_upgrade_title">PIN أقصر من الموصى به</string>
+    <string name="pin_upgrade_sub">PIN الحالي أقل من 6 أرقام — نوصي بتقويته لحماية أفضل</string>
+    <string name="pin_upgrade_now">قوِّ الآن</string>
+    <string name="pin_upgrade_later">لاحقًا</string>
     <string name="pin_wrong">حاول مجددًا</string>
     <string name="setpin_title">أنشئ PIN للحماية</string>
     <string name="setpin_sub">يُستخدم مع البيومتريك لفتح نوتا</string>

@@ -50,7 +50,7 @@ class AuthManager(private val ctx: Context) {
     }
 
     fun unlockWithPin(pin: String, expectedHash: String): Boolean {
-        // PIN يُقارن بـ Argon2/BCrypt hash في DataStore — لا plain
+        // PIN يُقارن بـ PBKDF2-HMAC-SHA256 (310k دورة) في DataStore — لا plain
         val ok = PinHash.verify(pin, expectedHash)
         if (ok) { _unlocked.value = true; touch() }
         return ok

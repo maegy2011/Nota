@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +41,7 @@ fun SetPinScreen(onDone: (String) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     val mismatch = stringResource(R.string.pin_mismatch)
     val short = stringResource(R.string.pin_short)
+    val ctx = LocalContext.current
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(
         Modifier.fillMaxSize().padding(24.dp),
@@ -59,6 +61,16 @@ fun SetPinScreen(onDone: (String) -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
         )
+        // تحذير لا استرداد عند الإعداد الأول — يُقرأ قبل الإدخال
+        if (step == 0) {
+            Text(
+                stringResource(R.string.setpin_norecover_warn),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+            )
+        }
         Spacer(Modifier.height(8.dp))
         BrandHeader(size = 72.dp)
         Spacer(Modifier.height(16.dp))
@@ -86,18 +98,18 @@ fun SetPinScreen(onDone: (String) -> Unit) {
         Button(
             onClick = {
                 if (step == 0) {
-                    if (current.length < 4) error = short
+                    if (current.length < 6) error = short
                     else { first = current; current = ""; step = 1; error = null }
                 } else {
                     error = when {
-                        current.length < 4 -> short
+                        current.length < 6 -> short
                         current != first -> mismatch
                         else -> null
                     }
-                    if (error == null) onDone(current)
+                    if (error == null) { Haptics.confirm(ctx); onDone(current) }
                 }
             },
-            enabled = current.length >= 4,
+            enabled = current.length >= 6,
             modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(if (step == 0) R.string.verify_btn else R.string.setpin_done)) }
     }
