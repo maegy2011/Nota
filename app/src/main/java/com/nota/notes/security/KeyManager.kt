@@ -13,6 +13,7 @@ object KeyManager {
     private const val ALIAS_CLOUD_WRAP = "nota_cloud_wrap"
     private const val ALIAS_TOKEN = "nota_token_vault"
     private const val ALIAS_DRIVE_PW = "nota_drive_pw"
+    private const val ALIAS_BIO = "nota_bio_challenge"
 
     fun getOrCreateDbKey(): SecretKey = getOrCreate(ALIAS_DB)
 
@@ -31,6 +32,43 @@ object KeyManager {
 
     // كلمة مرور Drive الثابتة: تُحفظ مشفرة بهذا المفتاح — الحماية من قراءة السيرفر لا من الجهاز (27 سبتمبر 2026)
     fun getOrCreateDrivePwKey(): SecretKey = getOrCreate(ALIAS_DRIVE_PW)
+
+    // تحدي البصمة المرتبط حيويًا: مفتاح Keystore يتطلب مصادقة بيومترية عند كل استخدام،
+    // ويُبطل تلقائيًا عند إضافة/إزالة بصمة (fail-closed ضد بصمة دخيلة بعد سرقة الجهاز).
+    // يُستخدم حصرًا لبناء CryptoObject في مساري الفتح والاسترداد — لا تشفير بيانات به.
+    fun getBioChallengeCipher(): javax.crypto.Cipher {
+        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if ((ks.getEntry(ALIAS_BIO, null) as? KeyStore.SecretKeyEntry) == null) {
+            val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            val spec = KeyGenParameterSpec.Builder(ALIAS_BIO, KeyProperties.PURPOSE_ENCRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                .setUserAuthenticationRequired(true)
+            if (android.os.Build.VERSION.SDK_INT >= 24) spec.setInvalidatedByBiometricEnrollment(true)
+            gen.init(spec.build())
+            gen.generateKey()
+        }
+        val key = (ks.getEntry(ALIAS_BIO, null) as? KeyStore.SecretKeyEntry)?.secretKey
+            ?: throw java.security.KeyStoreException("bio key missing")
+        return javax.crypto.Cipher.getInstance("AES/CBC/PKCS7Padding").apply {
+            init(javax.crypto.Cipher.ENCRYPT_MODE, key) // يرمي KeyPermanentlyInvalidatedException بعد تغيير البصمات
+        }
+    }
+
+    // بعد فتح ناجح بالـ PIN: إن أُبطل مفتاح التحدي (بصمة جديدة شرعية) يُحذف ليُعاد توليده —
+    // المهاجم ببصمة جديدة لا يملك الـ PIN أصلًا فلا يصل لهذه النقطة أبدًا.
+    fun refreshBioChallengeIfInvalidated() {
+        try {
+            getBioChallengeCipher()
+        } catch (e: Exception) {
+            if (e is android.security.keystore.KeyPermanentlyInvalidatedException) {
+                runCatching {
+                    val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                    ks.deleteEntry(ALIAS_BIO)
+                }
+            }
+        }
+    }
 
     private fun getOrCreate(alias: String): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }

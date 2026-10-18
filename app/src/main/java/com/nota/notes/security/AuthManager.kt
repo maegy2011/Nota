@@ -33,10 +33,22 @@ class AuthManager(private val ctx: Context) {
     }
 
     fun biometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit, onLockout: () -> Unit = {}) {
+        // ربط حيوي حقيقي: بلا CryptoObject صالح لا تُعرض المطالبة أصلًا (fail-closed).
+        // بعد إضافة بصمة جديدة يُبطل Keystore المفتاح → init ترمي → نرفض قبل العرض.
+        val crypto = try {
+            androidx.biometric.BiometricPrompt.CryptoObject(KeyManager.getBioChallengeCipher())
+        } catch (e: Exception) {
+            onErr("")
+            return
+        }
         val executor = ContextCompat.getMainExecutor(ctx)
         val prompt = BiometricPrompt(activity, executor,
             object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) { _unlocked.value = true; touch(); onOk() }
+                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) {
+                    // نجاح بلا CryptoObject = نجاح مزيف — يُرفض كفشل تحقق عادي
+                    if (r.cryptoObject == null) { onErr(""); return }
+                    _unlocked.value = true; touch(); onOk()
+                }
                 // القفل المؤقت للبصمة (محاولات كثيرة) مسار مستقل — تُخفى البصمة ويُعرض PIN فقط
                 override fun onAuthenticationError(c: Int, s: CharSequence) {
                     if (c == BiometricPrompt.ERROR_LOCKOUT || c == BiometricPrompt.ERROR_LOCKOUT_PERMANENT) onLockout()
@@ -50,13 +62,17 @@ class AuthManager(private val ctx: Context) {
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .setNegativeButtonText(ctx.getString(ctx.resources.getIdentifier("bio_use_pin", "string", ctx.packageName)))
             .build()
-        prompt.authenticate(info)
+        prompt.authenticate(info, crypto)
     }
 
     fun unlockWithPin(pin: String, expectedHash: String): Boolean {
         // PIN يُقارن بـ PBKDF2-HMAC-SHA256 (310k دورة) في DataStore — لا plain
         val ok = PinHash.verify(pin, expectedHash)
-        if (ok) { _unlocked.value = true; touch() }
+        if (ok) {
+            _unlocked.value = true; touch()
+            // PIN صحيح = مالك شرعي: جدّد مفتاح التحدي إن أُبطل ببصمة جديدة شرعية (18 أكتوبر 2026)
+            runCatching { KeyManager.refreshBioChallengeIfInvalidated() }
+        }
         return ok
     }
 
