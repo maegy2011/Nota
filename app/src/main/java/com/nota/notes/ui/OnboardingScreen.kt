@@ -63,9 +63,9 @@ fun OnboardingScreen(onDone: () -> Unit) {
                     userScrollEnabled = true
                 ) { i ->
                     when (i) {
-                        0 -> WelcomePage()
+                        0 -> WelcomePage(onDone)
                         1 -> FeaturesPage()
-                        2 -> FunctionsPage()
+                        2 -> FunctionsPage(onDone)
                         3 -> UseCasesPage()
                         4 -> SecurityPage()
                         else -> SubscriptionPage()
@@ -128,7 +128,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
 }
 
 @Composable
-private fun WelcomePage() {
+private fun WelcomePage(onDone: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
@@ -148,6 +148,10 @@ private fun WelcomePage() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        Spacer(Modifier.height(20.dp))
+        Button(onClick = onDone) {
+            Text(stringResource(R.string.ob_cta_start))
+        }
     }
 }
 
@@ -195,7 +199,7 @@ private fun StepRow(text: String) {
 }
 
 @Composable
-private fun FunctionsPage() {
+private fun FunctionsPage(onDone: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
@@ -211,6 +215,10 @@ private fun FunctionsPage() {
         StepRow(stringResource(R.string.ob_func2))
         StepRow(stringResource(R.string.ob_func3))
         StepRow(stringResource(R.string.ob_func4))
+        Spacer(Modifier.height(16.dp))
+        TextButton(onClick = onDone) {
+            Text(stringResource(R.string.ob_cta_try))
+        }
     }
 }
 
