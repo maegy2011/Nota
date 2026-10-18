@@ -15,10 +15,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -38,19 +41,10 @@ import androidx.compose.ui.unit.dp
 import com.nota.notes.R
 import kotlinx.coroutines.launch
 
-// شاشات التعريف عند أول تشغيل: 4 صفحات تمرير + صفحة اشتراك أخيرة — تُعرض مرة واحدة ثم تُحفظ
-private data class IntroPage(val icon: ImageVector, val title: Int, val body: Int)
-
-private val INTRO_PAGES = listOf(
-    IntroPage(Icons.Filled.Lock, R.string.ob1_title, R.string.ob1_body),
-    IntroPage(Icons.Filled.Fingerprint, R.string.ob2_title, R.string.ob2_body),
-    IntroPage(Icons.Filled.Folder, R.string.ob3_title, R.string.ob3_body),
-    IntroPage(Icons.Filled.Backup, R.string.ob4_title, R.string.ob4_body)
-)
-
-// إجمالي الصفحات = 4 تعريف + 1 اشتراك
-private const val TOTAL_PAGES = 5
-private const val SUBSCRIPTION_PAGE = 4
+// شاشات التعريف عند أول تشغيل: 6 صفحات — تُعرض مرة واحدة ثم تُحفظ
+// 1 ترحيب/قيمة  2 مميزات  3 وظائف  4 حالات استخدام  5 أمان  6 اشتراك
+private const val TOTAL_PAGES = 6
+private const val SUBSCRIPTION_PAGE = 5
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -68,31 +62,13 @@ fun OnboardingScreen(onDone: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                     userScrollEnabled = true
                 ) { i ->
-                    if (i < INTRO_PAGES.size) {
-                        val p = INTRO_PAGES[i]
-                        Column(
-                            Modifier.fillMaxSize().padding(16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            BrandBadge(p.icon, size = 104.dp)
-                            Spacer(Modifier.height(24.dp))
-                            Text(
-                                stringResource(p.title),
-                                style = MaterialTheme.typography.headlineSmall,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                stringResource(p.body),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        // صفحة الاشتراك (الأخيرة)
-                        SubscriptionPage()
+                    when (i) {
+                        0 -> WelcomePage()
+                        1 -> FeaturesPage()
+                        2 -> FunctionsPage()
+                        3 -> UseCasesPage()
+                        4 -> SecurityPage()
+                        else -> SubscriptionPage()
                     }
                 }
             }
@@ -117,7 +93,6 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // السابق
                 if (currentPage > 0) {
                     IconButton(onClick = { scope.launch { pager.animateScrollToPage(currentPage - 1) } }) {
                         Icon(
@@ -128,7 +103,6 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 } else {
                     Spacer(Modifier.size(48.dp))
                 }
-                // تخطي (نص) في صفحات التعريف
                 if (!isLast) {
                     TextButton(onClick = onDone) {
                         Text(stringResource(R.string.ob_skip))
@@ -136,7 +110,6 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 } else {
                     Spacer(Modifier.size(48.dp))
                 }
-                // التالي أو ابدأ
                 if (!isLast) {
                     IconButton(onClick = { scope.launch { pager.animateScrollToPage(currentPage + 1) } }) {
                         Icon(
@@ -151,6 +124,137 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WelcomePage() {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        BrandBadge(Icons.Filled.Description, size = 104.dp)
+        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.ob_welcome_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.ob_welcome_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun FeatureRow(icon: ImageVector, text: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.size(12.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun FeaturesPage() {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            stringResource(R.string.ob_features_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+        FeatureRow(Icons.Filled.Lock, stringResource(R.string.ob_feat1))
+        FeatureRow(Icons.Filled.Search, stringResource(R.string.ob_feat2))
+        FeatureRow(Icons.Filled.Brush, stringResource(R.string.ob_feat3))
+        FeatureRow(Icons.Filled.PushPin, stringResource(R.string.ob_feat4))
+    }
+}
+
+@Composable
+private fun StepRow(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        textAlign = TextAlign.Start
+    )
+}
+
+@Composable
+private fun FunctionsPage() {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            stringResource(R.string.ob_functions_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+        StepRow(stringResource(R.string.ob_func1))
+        StepRow(stringResource(R.string.ob_func2))
+        StepRow(stringResource(R.string.ob_func3))
+        StepRow(stringResource(R.string.ob_func4))
+    }
+}
+
+@Composable
+private fun UseCasesPage() {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            stringResource(R.string.ob_usecases_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+        StepRow(stringResource(R.string.ob_uc1))
+        StepRow(stringResource(R.string.ob_uc2))
+        StepRow(stringResource(R.string.ob_uc3))
+        StepRow(stringResource(R.string.ob_uc4))
+    }
+}
+
+@Composable
+private fun SecurityPage() {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        BrandBadge(Icons.Filled.Shield, size = 104.dp)
+        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.ob_security_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.ob_security_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
