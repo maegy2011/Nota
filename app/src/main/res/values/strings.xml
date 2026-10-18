@@ -171,6 +171,12 @@
     <string name="pin_recover_forgot">نسيت PIN؟ استرداد بالبصمة</string>
     <string name="pin_recover_fail">تعذر التحقق — حاول مجددًا</string>
     <string name="setpin_norecover_warn">⚠️ احفظ PIN في مكان آمن — لا توجد طريقة لاسترداده</string>
+    <string name="locked_sub_throttled">مقفولة مؤقتًا ضد التخمين — أدخل PIN بعد انتهاء العدّاد</string>
+    <string name="locked_sub_pinonly">ملاحظاتك مشفرة على جهازك — أدخل PIN للفتح</string>
+    <string name="bio_locked_temp">البصمة مقفلة مؤقتًا — استخدم PIN</string>
+    <string name="root_ack">فهمت</string>
+    <string name="root_never">لا تظهر مجددًا</string>
+    <string name="pin_hint_max8">من 6 إلى 8 أرقام كحد أقصى</string>
     <string name="bio_disable_warn">إيقاف البصمة يجعل PIN طريقتك الوحيدة للفتح — احفظه جيدًا</string>
     <string name="pin_upgrade_title">PIN أقصر من الموصى به</string>
     <string name="pin_upgrade_sub">PIN الحالي أقل من 6 أرقام — نوصي بتقويته لحماية أفضل</string>
@@ -178,7 +184,7 @@
     <string name="pin_upgrade_later">لاحقًا</string>
     <string name="pin_wrong">حاول مجددًا</string>
     <string name="setpin_title">أنشئ PIN للحماية</string>
-    <string name="setpin_sub">يُستخدم مع البيومتريك لفتح نوتا</string>
+    <string name="setpin_sub">من 6 إلى 8 أرقام — مع البصمة لفتح بثانية</string>
     <string name="setpin_first">أدخل PIN جديد</string>
     <string name="setpin_confirm">أكد الـ PIN</string>
     <string name="pin_mismatch">غير متطابق — أعد المحاولة</string>

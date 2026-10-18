@@ -26,14 +26,22 @@ class AuthViewModel @Inject constructor(
     val pinMin6Ok: StateFlow<Boolean?> = _pinMin6Ok
     private val _pinCardDismissed = MutableStateFlow(false)
     val pinCardDismissed: StateFlow<Boolean> = _pinCardDismissed
+    private val _rootWarnDismissed = MutableStateFlow(false)
+    val rootWarnDismissed: StateFlow<Boolean> = _rootWarnDismissed
 
     init {
         viewModelScope.launch {
             _pinHash.value = store.readPinHash()
             _pinMin6Ok.value = store.readPinMin6()
             _pinCardDismissed.value = store.pinCardDismissed()
+            _rootWarnDismissed.value = store.rootWarnDismissed()
             _loaded.value = true
         }
+    }
+
+    fun dismissRootWarn() = viewModelScope.launch {
+        store.dismissRootWarn()
+        _rootWarnDismissed.value = true
     }
 
     fun dismissPinCard() = viewModelScope.launch {
@@ -70,8 +78,8 @@ class AuthViewModel @Inject constructor(
 
     fun canBiometric(): Boolean = auth.canBiometric()
 
-    fun promptBiometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit) {
-        auth.biometric(activity, onOk, onErr)
+    fun promptBiometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit, onLockout: () -> Unit = {}) {
+        auth.biometric(activity, onOk, onErr, onLockout)
     }
 
     fun touch() = auth.touch()

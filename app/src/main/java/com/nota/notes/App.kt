@@ -272,11 +272,20 @@ private fun AuthedApp(
         val activity = ctx as? FragmentActivity
         val available = bioEnabled && authVm.canBiometric() && activity != null
         var autoFired by remember { mutableStateOf(false) }
+        // البصمة مقفلة مؤقتًا من النظام — تُخفى خليتها ويبقى PIN؛ تُعاد المحاولة بعد 30 ثانية
+        var bioLockedOut by remember { mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(bioLockedOut) {
+            if (bioLockedOut) {
+                kotlinx.coroutines.delay(30_000)
+                bioLockedOut = false
+            }
+        }
+        val rootNeverDismissed by authVm.rootWarnDismissed.collectAsStateWithLifecycle()
         // محاولة بصمة تلقائية أول ظهور لشاشة القفل إن كانت مفعّلة ومتاحة
         LaunchedEffect(available) {
             if (available && !autoFired && activity != null) {
                 autoFired = true
-                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk() }, onErr = { if (it.isNotBlank()) bioError = it })
+                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk() }, onErr = { if (it.isNotBlank()) bioError = it }, onLockout = { bioLockedOut = true })
             }
         }
         // زر رجوع الهاتف على شاشة القفل: يخرج من التطبيق (السلوك الافتراضي) — لا BackHandler يعترضه
@@ -286,9 +295,13 @@ private fun AuthedApp(
                 if (activity != null) {
                     authVm.promptBiometric(activity,
                         onOk = { unlocked = true; authVm.biometricOk() },
-                        onErr = { if (it.isNotBlank()) bioError = it })
+                        onErr = { if (it.isNotBlank()) bioError = it },
+                        onLockout = { bioLockedOut = true })
                 }
             },
+            bioLockedOut = bioLockedOut,
+            rootNeverDismissed = rootNeverDismissed,
+            onRootNeverShow = { authVm.dismissRootWarn() },
             onPin = { pin ->
                 if (pin.isEmpty()) return@LockScreen
                 scope.launch {

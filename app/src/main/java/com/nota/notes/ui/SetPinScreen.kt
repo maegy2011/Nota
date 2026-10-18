@@ -88,6 +88,14 @@ fun SetPinScreen(onDone: (String) -> Unit) {
             pin = current,
             onPin = { if (it.length <= 8 && it.all(Char::isDigit)) { current = it; error = null } }
         )
+        // تلميح الحد الأقصى: 8 أرقام — يذكّر بالسقف بلا كشف قواعد عند الفشل
+        Text(
+            stringResource(R.string.pin_hint_max8),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
         if (error != null) {
             Text(
                 error!!,

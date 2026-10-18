@@ -32,12 +32,16 @@ class AuthManager(private val ctx: Context) {
         return m.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    fun biometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit) {
+    fun biometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit, onLockout: () -> Unit = {}) {
         val executor = ContextCompat.getMainExecutor(ctx)
         val prompt = BiometricPrompt(activity, executor,
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) { _unlocked.value = true; touch(); onOk() }
-                override fun onAuthenticationError(c: Int, s: CharSequence) { onErr(s.toString()) }
+                // القفل المؤقت للبصمة (محاولات كثيرة) مسار مستقل — تُخفى البصمة ويُعرض PIN فقط
+                override fun onAuthenticationError(c: Int, s: CharSequence) {
+                    if (c == BiometricPrompt.ERROR_LOCKOUT || c == BiometricPrompt.ERROR_LOCKOUT_PERMANENT) onLockout()
+                    else onErr(s.toString())
+                }
                 override fun onAuthenticationFailed() { onErr("") }
             })
         val info = BiometricPrompt.PromptInfo.Builder()

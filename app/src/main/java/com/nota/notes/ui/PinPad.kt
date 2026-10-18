@@ -22,11 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
@@ -70,6 +72,12 @@ fun PinPad(
     onBio: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
+    // احترام إعداد الاهتزاز العام — يُقرأ لحظة الضغط بلا حاجة لإعادة تركيب
+    fun tap(type: HapticFeedbackType = HapticFeedbackType.TextHandleMove) {
+        if (Haptics.enabled) haptic.performHapticFeedback(type)
+    }
+    // حجم تكيفي: الشاشات القصيرة (< 620dp طولًا) مفاتيح 64dp بدل 72dp
+    val keySize = if (LocalConfiguration.current.screenHeightDp < 620) 64.dp else 72.dp
     val bioCd = stringResource(R.string.unlock_bio_cd)
     // الأرقام LTR دائمًا
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -89,8 +97,8 @@ fun PinPad(
                 ) {
                     for (col in 0..2) {
                         val d = keys[row * 3 + col]
-                        PinKey(label = d) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        PinKey(label = d, size = keySize) {
+                            tap()
                             if (pin.length < maxLen && pin.all(Char::isDigit)) onPin(pin + d)
                         }
                     }
@@ -105,21 +113,23 @@ fun PinPad(
                 if (showBio) {
                     PinKeyIcon(
                         contentDesc = bioCd,
-                        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onBio() }
+                        size = keySize,
+                        onClick = { tap(HapticFeedbackType.LongPress); onBio() }
                     ) {
                         Icon(Icons.Filled.Fingerprint, contentDescription = null, modifier = Modifier.size(28.dp))
                     }
                 } else {
                     Box(Modifier.size(72.dp))
                 }
-                PinKey(label = "0") {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                PinKey(label = "0", size = keySize) {
+                    tap()
                     if (pin.length < maxLen) onPin(pin + "0")
                 }
                 PinKeyIcon(
                     contentDesc = stringResource(R.string.clear_search_cd),
+                    size = keySize,
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        tap()
                         if (pin.isNotEmpty()) onPin(pin.dropLast(1))
                     }
                 ) {
@@ -131,11 +141,11 @@ fun PinPad(
 }
 
 @Composable
-private fun PinKey(label: String, onClick: () -> Unit) {
+private fun PinKey(label: String, size: Dp = 72.dp, onClick: () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
         shape = CircleShape,
-        modifier = Modifier.size(72.dp)
+        modifier = Modifier.size(size)
             .semantics { contentDescription = label }
     ) {
         Text(label, style = MaterialTheme.typography.headlineSmall)
@@ -143,11 +153,11 @@ private fun PinKey(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PinKeyIcon(contentDesc: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+private fun PinKeyIcon(contentDesc: String, size: Dp = 72.dp, onClick: () -> Unit, icon: @Composable () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
         shape = CircleShape,
-        modifier = Modifier.size(72.dp)
+        modifier = Modifier.size(size)
             .semantics { contentDescription = contentDesc }
     ) {
         icon()

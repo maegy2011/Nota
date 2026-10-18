@@ -168,6 +168,16 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
         ctx.secureStore.edit { it[K_PIN_CARD_DISMISSED] = true }
     }
 
+    // إسقاط تحذير الروت نهائيًا — خيار صريح من المستخدم
+    private val K_ROOT_DISMISSED = androidx.datastore.preferences.core.booleanPreferencesKey("root_warn_dismissed")
+
+    suspend fun rootWarnDismissed(): Boolean =
+        ctx.secureStore.data.map { it[K_ROOT_DISMISSED] ?: false }.first()
+
+    suspend fun dismissRootWarn() {
+        ctx.secureStore.edit { it[K_ROOT_DISMISSED] = true }
+    }
+
     private fun aesEncrypt(plain: ByteArray): Pair<ByteArray, ByteArray> {
         val key = KeyManager.getOrCreateDbKey()
         val c = Cipher.getInstance("AES/GCM/NoPadding")

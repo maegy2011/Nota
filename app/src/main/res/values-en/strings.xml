@@ -171,6 +171,12 @@
     <string name="pin_recover_forgot">Forgot PIN? Recover with biometrics</string>
     <string name="pin_recover_fail">Couldn\'t verify — try again</string>
     <string name="setpin_norecover_warn">⚠️ Save your PIN somewhere safe — it can\'t be recovered</string>
+    <string name="locked_sub_throttled">Briefly locked against guessing — enter your PIN when the timer ends</string>
+    <string name="locked_sub_pinonly">Encrypted on your device — enter your PIN to unlock</string>
+    <string name="bio_locked_temp">Biometrics briefly locked — use your PIN</string>
+    <string name="root_ack">Got it</string>
+    <string name="root_never">Don\'t show again</string>
+    <string name="pin_hint_max8">6 to 8 digits max</string>
     <string name="bio_disable_warn">Turning biometrics off leaves PIN as your only unlock — keep it safe</string>
     <string name="pin_upgrade_title">PIN shorter than recommended</string>
     <string name="pin_upgrade_sub">Your current PIN is under 6 digits — we recommend strengthening it</string>
@@ -178,7 +184,7 @@
     <string name="pin_upgrade_later">Later</string>
     <string name="pin_wrong">Try again</string>
     <string name="setpin_title">Create your PIN</string>
-    <string name="setpin_sub">4 to 8 digits — plus biometrics for one-second unlock</string>
+    <string name="setpin_sub">6 to 8 digits — plus biometrics for one-second unlock</string>
     <string name="setpin_first">New PIN</string>
     <string name="setpin_confirm">Confirm PIN</string>
     <string name="pin_mismatch">PINs don\'t match — retype</string>
