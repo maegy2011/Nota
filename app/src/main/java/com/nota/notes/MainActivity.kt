@@ -3,6 +3,7 @@ package com.nota.notes
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -27,7 +28,7 @@ class MainActivity : AppCompatActivity() {
         // شاشة النظام الرسمية (مهمة 1، 18 أكتوبر 2026 — الخيار: System + Compose):
         // النظام يعرض الشعار ثابتًا على نفس الخلفية حتى جاهزية التهيئة الحقيقية (SplashGate.keepOnScreen)
         // ثم Compose بحركة 350ms فقط — بلا "2x Splash" مرئي لتماثل الخلفيتين
-        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
+        installSplashScreen()
             .setKeepOnScreenCondition { com.nota.notes.ui.SplashGate.keepOnScreen }
         if (isNewNoteIntent()) newNoteSignal++
         intent?.getLongExtra(EXTRA_OPEN_NOTE, -1L)?.takeIf { it > 0 }?.let { openNoteId = it }
