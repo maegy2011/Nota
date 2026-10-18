@@ -166,6 +166,8 @@
     <string name="pin_label">Or type your PIN</string>
     <string name="unlock_pin">Unlock</string>
     <string name="pin_short">PIN needs at least 6 digits</string>
+    <string name="pindots_empty">No digits entered</string>
+    <string name="pindots_filled_fmt">%1$d of %2$d digits entered</string>
     <string name="pin_recover_forgot">Forgot PIN? Recover with biometrics</string>
     <string name="pin_recover_fail">Couldn\'t verify — try again</string>
     <string name="setpin_norecover_warn">⚠️ Save your PIN somewhere safe — it can\'t be recovered</string>

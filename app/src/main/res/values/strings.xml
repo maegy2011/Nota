@@ -166,6 +166,8 @@
     <string name="pin_label">أو أدخل PIN</string>
     <string name="unlock_pin">فتح بالـ PIN</string>
     <string name="pin_short">PIN لا يقل عن 6 أرقام</string>
+    <string name="pindots_empty">لا أرقام مدخلة</string>
+    <string name="pindots_filled_fmt">%1$d من %2$d أرقام مدخلة</string>
     <string name="pin_recover_forgot">نسيت PIN؟ استرداد بالبصمة</string>
     <string name="pin_recover_fail">تعذر التحقق — حاول مجددًا</string>
     <string name="setpin_norecover_warn">⚠️ احفظ PIN في مكان آمن — لا توجد طريقة لاسترداده</string>

@@ -25,6 +25,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
@@ -32,13 +34,14 @@ import com.nota.notes.R
 // لوحة أرقام داخلية واحدة لكل شاشات PIN — بلا كيبورد نظام (خصوصية: لا تسجيل خارجي)
 // الإرسال يدوي دائمًا من الزر الأب — اللوحة إدخال فقط (منعًا للتخمين التلقائي)
 @Composable
-fun PinDots(pin: String, maxLen: Int = 8) {
-    // النقاط LTR دائمًا حتى داخل RTL
+fun PinDots(pin: String, maxLen: Int = 8, contentDesc: String = "") {
+    // النقاط LTR دائمًا حتى داخل RTL — وصف ديناميكي لقارئ الشاشة (فارغ/N من 8)
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                .semantics(mergeDescendants = true) { contentDescription = contentDesc }
         ) {
             repeat(maxLen) { i ->
                 val filled = i < pin.length
@@ -74,7 +77,10 @@ fun PinPad(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            PinDots(pin = pin, maxLen = maxLen)
+            // وصف النقاط: فارغ أو N من الحد — يُمرر من موارد الشاشة الأب
+            val dotsDesc = if (pin.isEmpty()) stringResource(R.string.pindots_empty)
+            else stringResource(R.string.pindots_filled_fmt, pin.length, maxLen)
+            PinDots(pin = pin, maxLen = maxLen, contentDesc = dotsDesc)
             val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
             chunks@ for (row in 0..2) {
                 Row(
@@ -130,6 +136,7 @@ private fun PinKey(label: String, onClick: () -> Unit) {
         onClick = onClick,
         shape = CircleShape,
         modifier = Modifier.size(72.dp)
+            .semantics { contentDescription = label }
     ) {
         Text(label, style = MaterialTheme.typography.headlineSmall)
     }
@@ -141,6 +148,7 @@ private fun PinKeyIcon(contentDesc: String, onClick: () -> Unit, icon: @Composab
         onClick = onClick,
         shape = CircleShape,
         modifier = Modifier.size(72.dp)
+            .semantics { contentDescription = contentDesc }
     ) {
         icon()
     }

@@ -44,6 +44,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -169,6 +172,7 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive }
                 )
             }
             if (lockMsg != null) {
@@ -177,6 +181,7 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive }
                 )
             }
             // مسار استرداد: البصمة الناجحة = مالك شرعي فيُتجاوز إدخال الحالي — الفشل رسالة عامة بلا تفاصيل
@@ -203,6 +208,7 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive }
                 )
             }
             // التحقق هنا يُحسب ضمن درع التخمين أيضًا — لا باب خلفي
