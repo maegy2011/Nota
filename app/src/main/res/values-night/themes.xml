@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- شاشة نظام الليل (مهمة 1): نفس خلفية Compose الداكنة — بلا قفزة لونية -->
+    <style name="Theme.Nota.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#16130E</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_nota_badge</item>
+        <item name="windowSplashScreenAnimationDuration">800</item>
+        <item name="postSplashScreenTheme">@style/Theme.Nota</item>
+    </style>
+</resources>

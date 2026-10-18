@@ -23,8 +23,12 @@ class MainActivity : AppCompatActivity() {
     private var openNoteId by androidx.compose.runtime.mutableLongStateOf(-1L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // بلا شاشة نظام مسبقة — LuxurySplashScreen الحديثة وحدها (قرار 23 سبتمبر 2026)
         super.onCreate(savedInstanceState)
+        // شاشة النظام الرسمية (مهمة 1، 18 أكتوبر 2026 — الخيار: System + Compose):
+        // النظام يعرض الشعار ثابتًا على نفس الخلفية حتى جاهزية التهيئة الحقيقية (SplashGate.keepOnScreen)
+        // ثم Compose بحركة 350ms فقط — بلا "2x Splash" مرئي لتماثل الخلفيتين
+        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
+            .setKeepOnScreenCondition { com.nota.notes.ui.SplashGate.keepOnScreen }
         if (isNewNoteIntent()) newNoteSignal++
         intent?.getLongExtra(EXTRA_OPEN_NOTE, -1L)?.takeIf { it > 0 }?.let { openNoteId = it }
         // شريطا النظام يتبعان الثيم المختار — لا يبقيان داكنين في الوضع الفاتح

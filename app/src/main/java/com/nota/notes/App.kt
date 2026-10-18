@@ -136,8 +136,23 @@ fun App(
             val scope = androidx.compose.runtime.rememberCoroutineScope()
             // بوابة شاشة البداية 2026: التهيئة الحقيقية (loaded) + انتهاء الحركة (350ms) — بلا تأخير مصطنع
             var splashAnimDone by remember { mutableStateOf(false) }
+            // مؤشر التهيئة الطويلة (مهمة 3): يظهر فقط إن تجاوزت التهيئة 1000ms — لا يغيّر البوابة ولا ينقل قسرًا
+            var showSplashSpinner by remember { mutableStateOf(false) }
+            LaunchedEffect(loaded) {
+                if (!loaded) {
+                    kotlinx.coroutines.delay(1000)
+                    showSplashSpinner = true
+                }
+            }
+            // تحرير شاشة النظام مع اكتمال البوابة (مهمة 1: مربوط بـ loaded الحقيقي لا مؤقت)
+            LaunchedEffect(loaded, splashAnimDone) {
+                if (loaded && splashAnimDone) com.nota.notes.ui.SplashGate.keepOnScreen = false
+            }
             when {
-                !loaded || !splashAnimDone -> LuxurySplashScreen(onAnimationDone = { splashAnimDone = true })
+                !loaded || !splashAnimDone -> LuxurySplashScreen(
+                    onAnimationDone = { splashAnimDone = true },
+                    showLoading = showSplashSpinner && !loaded
+                )
                 // شاشات التعريف عند أول تشغيل فقط — قبل إنشاء PIN
                 !onboarded -> OnboardingScreen(onDone = {
                     scope.launch { settings.setOnboardingDone() }

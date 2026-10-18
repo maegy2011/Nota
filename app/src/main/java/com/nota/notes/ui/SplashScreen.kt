@@ -36,8 +36,18 @@ import kotlinx.coroutines.delay
 // الخلفية مطابقة لخلفية الثيم (0xFFFFFBF3 نهارًا / 0x16130E ليلًا) لانتقال سلس إلى Onboarding
 private const val SPLASH_ANIM_MS = 350
 
+// بوابة مشتركة بين Activity (نظام Splash) وCompose — الخيار: System + Compose (مهمة 1، 18 أكتوبر 2026)
+// النظام يعرض الشعار ثابتًا على نفس الخلفية حتى جاهزية التهيئة، ثم Compose بحركة 350ms فقط
+// (System Splash لا يدعم خط Amiri ولا التوقيع السفلي — لذا Compose ضروري لا مكرر)
+object SplashGate {
+    @Volatile var keepOnScreen: Boolean = true
+}
+
 @Composable
-fun LuxurySplashScreen(onAnimationDone: () -> Unit = {}) {
+fun LuxurySplashScreen(
+    onAnimationDone: () -> Unit = {},
+    showLoading: Boolean = false // مؤشر تحميل بعد 1000ms تهيئة (مهمة 3) — الخلفية والشعار يبقيان ظاهرين
+) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         visible = true
@@ -57,11 +67,13 @@ fun LuxurySplashScreen(onAnimationDone: () -> Unit = {}) {
         label = "splashScale"
     )
     val isDark = isSystemInDarkTheme()
-    // نفس خلفية الثيم تمامًا (Theme.kt) — الانتقال إلى Onboarding استمرار لا انقطاع
+    // نفس خلفية الثيم تمامًا (Theme.kt — مهمة 4: مطابقة مؤكدة) — الانتقال استمرار لا انقطاع
     val splashBackground = if (isDark) Color(0xFF16130E) else Color(0xFFFFFBF3)
     val appNameColor = if (isDark) Color(0xFFF2CE6B) else Color(0xFF000000)
-    // ذهبي النهار للشعار ثابت (أصل العلامة ic_nota_badge) — اسم التطبيق أسود يحقق تباينًا كاملًا
-    val copyrightColor = if (isDark) Color(0xFF6B5F4C) else Color(0xFF000000)
+    // توقيع WCAG AA 4.5:1 (مهمة 2، محسوب يدويًا): نهار أسود alpha .7 ≈ 8.4:1 ✓ — ليل #C9B88A (ذهبي الثيم) alpha .7 ≈ 5.2:1 ✓
+    // (#6B5F4C القديم ليلًا كان 1.6:1 فقط حتى بكامل الشفافية 2.97:1 — مرفوض)
+    val copyrightColor = if (isDark) Color(0xFFC9B88A) else Color(0xFF000000)
+    val spinnerColor = if (isDark) Color(0xFFF2CE6B) else Color(0xFF7A5900)
     Box(
         Modifier
             .fillMaxSize()
@@ -84,12 +96,17 @@ fun LuxurySplashScreen(onAnimationDone: () -> Unit = {}) {
                 fontSize = 40.sp,
                 color = appNameColor
             )
+            // مؤشر التهيئة الطويلة فقط — بلا نص جديد (مهمة 3)
+            if (showLoading) {
+                Spacer(Modifier.height(24.dp))
+                androidx.compose.material3.CircularProgressIndicator(color = spinnerColor)
+            }
         }
-        // توقيع سفلي مخفف — يظهر مع الشعار في نفس اللحظة (نفس alpha)، بلا تأخير إضافي
+        // توقيع سفلي — يظهر مع الشعار في نفس اللحظة (نفس alpha)، بلا تأخير إضافي — alpha .7 لضمان 4.5:1 (مهمة 2)
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
-                .alpha(0.5f * alpha)
+                .alpha(0.7f * alpha)
         ) {
             Text(
                 // حقوق الملكية الفكرية: اسم التطبيق + السنة — بأمر محمد 27 سبتمبر 2026
