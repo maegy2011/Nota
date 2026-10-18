@@ -115,6 +115,7 @@ fun AboutScreen() {
             )
         }
         if (logOpen) {
+        ChangelogEntry(stringResource(R.string.about_v125_0_title), stringResource(R.string.about_v125_0_items))
         ChangelogEntry(stringResource(R.string.about_v123_0_title), stringResource(R.string.about_v123_0_items))
         ChangelogEntry(stringResource(R.string.about_v122_0_title), stringResource(R.string.about_v122_0_items))
         ChangelogEntry(stringResource(R.string.about_v118_0_title), stringResource(R.string.about_v118_0_items))
