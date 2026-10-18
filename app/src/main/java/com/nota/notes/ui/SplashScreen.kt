@@ -30,26 +30,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.nota.notes.R
+import kotlinx.coroutines.delay
 
-// شاشة بداية فاخرة: خلفية تتكيف مع الوضع (فاتحة للنهار، داكنة للليل) + شارة ذهبية + اسم + سطر — تظهر بعد سباش النظام مباشرة
+// شاشة بداية 2026: نافذة حركة واحدة 350ms (تكبير 0.92→1 + تلاشي متزامن) — بلا سطر تعريفي، بلا تأخير مصطنع
+// الخلفية مطابقة لخلفية الثيم (0xFFFFFBF3 نهارًا / 0x16130E ليلًا) لانتقال سلس إلى Onboarding
+private const val SPLASH_ANIM_MS = 350
+
 @Composable
-fun LuxurySplashScreen() {
+fun LuxurySplashScreen(onAnimationDone: () -> Unit = {}) {
     var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
+    LaunchedEffect(Unit) {
+        visible = true
+        // إشارة انتهاء الحركة فقط (350ms) — ليست تأخيرًا مصطنعًا للعرض
+        delay(SPLASH_ANIM_MS.toLong())
+        onAnimationDone()
+    }
+    // نافذة زمنية واحدة: التكبير والتلاشي متزامنان
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = SPLASH_ANIM_MS, easing = FastOutSlowInEasing),
         label = "splashAlpha"
     )
     val scale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.85f,
-        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        targetValue = if (visible) 1f else 0.92f,
+        animationSpec = tween(durationMillis = SPLASH_ANIM_MS, easing = FastOutSlowInEasing),
         label = "splashScale"
     )
     val isDark = isSystemInDarkTheme()
-    val splashBackground = if (isDark) Color(0xFF16130E) else Color(0xFFFAF9F6)
+    // نفس خلفية الثيم تمامًا (Theme.kt) — الانتقال إلى Onboarding استمرار لا انقطاع
+    val splashBackground = if (isDark) Color(0xFF16130E) else Color(0xFFFFFBF3)
     val appNameColor = if (isDark) Color(0xFFF2CE6B) else Color(0xFF000000)
-    val taglineColor = if (isDark) Color(0xFFC9B88A) else Color(0xFF000000)
+    // ذهبي النهار للشعار ثابت (أصل العلامة ic_nota_badge) — اسم التطبيق أسود يحقق تباينًا كاملًا
     val copyrightColor = if (isDark) Color(0xFF6B5F4C) else Color(0xFF000000)
     Box(
         Modifier
@@ -73,20 +84,12 @@ fun LuxurySplashScreen() {
                 fontSize = 40.sp,
                 color = appNameColor
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.splash_tagline),
-                fontFamily = TajawalFamily,
-                fontWeight = FontWeight.Normal,
-                fontSize = 15.sp,
-                color = taglineColor
-            )
         }
-        // توقيع سفلي خافت
+        // توقيع سفلي مخفف — يظهر مع الشعار في نفس اللحظة (نفس alpha)، بلا تأخير إضافي
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
-                .alpha(alpha * 0.8f)
+                .alpha(0.5f * alpha)
         ) {
             Text(
                 // حقوق الملكية الفكرية: اسم التطبيق + السنة — بأمر محمد 27 سبتمبر 2026

@@ -134,14 +134,10 @@ fun App(
             val onboarded by settings.onboardingDone.collectAsStateWithLifecycle(initialValue = true)
             val permsReviewed by settings.permsReviewed.collectAsStateWithLifecycle(initialValue = true)
             val scope = androidx.compose.runtime.rememberCoroutineScope()
-            // زمن أدنى لشاشة البداية الفاخرة (1.2 ث) — انتقال ناعم من سباش النظام بلا وميض
-            var splashMinTime by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(1200)
-                splashMinTime = true
-            }
+            // بوابة شاشة البداية 2026: التهيئة الحقيقية (loaded) + انتهاء الحركة (350ms) — بلا تأخير مصطنع
+            var splashAnimDone by remember { mutableStateOf(false) }
             when {
-                !loaded || !splashMinTime -> LuxurySplashScreen()
+                !loaded || !splashAnimDone -> LuxurySplashScreen(onAnimationDone = { splashAnimDone = true })
                 // شاشات التعريف عند أول تشغيل فقط — قبل إنشاء PIN
                 !onboarded -> OnboardingScreen(onDone = {
                     scope.launch { settings.setOnboardingDone() }
