@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.relocation.rememberBringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
@@ -44,8 +48,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
+import com.nota.notes.autolockLabel
 import com.nota.notes.data.SettingsStore
 
 // صفحة الإعدادات الموحدة: الأساسية + المتقدمة مدمجة في شاشة واحدة (قرار 23 سبتمبر 2026)
@@ -109,7 +117,34 @@ fun SettingsScreen(
     }
     // خلفية الثيم صراحةً — خلفية النافذة ثابتة داكنة فلا تُترك شفافة
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        val secScope = rememberCoroutineScope()
+        val scrollState = rememberScrollState()
+        val bioReq = rememberBringIntoViewRequester()
+        val recReq = rememberBringIntoViewRequester()
+        val devReq = rememberBringIntoViewRequester()
+        val lockReq = rememberBringIntoViewRequester()
+        val shotsReq = rememberBringIntoViewRequester()
+        fun go(req: BringIntoViewRequester) = secScope.launch { runCatching { req.bringIntoView() } }
+        Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
+        // بطاقة حالة الأمان (Commit 4): ملخص + روابط — بلا أزرار إجراء
+        val pinMin6 by authVm.pinMin6Ok.collectAsState()
+        val lastOk by authVm.lastUnlockOk.collectAsState()
+        val failsTotal by authVm.failTotal.collectAsState()
+        SecStatusCard(
+            unlockOk = biometricEnabled && biometricAvailable,
+            unlockText = stringResource(R.string.sec_unlock_pin_unknown),
+            recOn = hasRec,
+            devOn = devCred,
+            autoLockText = autolockLabel(LocalContext.current, autoLockMs),
+            shotsBlocked = !screenshotsAllowed,
+            onUnlock = { go(bioReq) },
+            onRec = { go(recReq) },
+            onDev = { go(devReq) },
+            onLock = { go(lockReq) },
+            onShots = { go(shotsReq) },
+            lastOkText = if (lastOk > 0) secFmtDate(lastOk) else stringResource(R.string.sec_never),
+            failsTotal = failsTotal
+        )
         SectionCard(stringResource(R.string.theme_title), top = 0.dp) {
             ThemeOption("system", stringResource(R.string.theme_system), theme, onTheme)
             ThemeOption("light", stringResource(R.string.theme_light), theme, onTheme)
@@ -183,7 +218,7 @@ fun SettingsScreen(
                 }
             }
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().bringIntoViewRequester(bioReq).padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -195,11 +230,31 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // حوار تأكيد التعطيل (Commit 4ج): التعطيل يُزيل مسار استرداد — إلغاء افتراضي
+                var showDisableConfirm by remember { mutableStateOf(false) }
                 Switch(
                     checked = biometricEnabled && biometricAvailable,
                     enabled = biometricAvailable,
-                    onCheckedChange = onBiometric
+                    onCheckedChange = { v ->
+                        if (!v && biometricEnabled) showDisableConfirm = true
+                        else onBiometric(v)
+                    }
                 )
+                if (showDisableConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDisableConfirm = false },
+                        title = { Text(stringResource(R.string.sec_disable_title)) },
+                        text = { Text(stringResource(R.string.sec_disable_msg)) },
+                        confirmButton = {
+                            TextButton(onClick = { showDisableConfirm = false; onBiometric(false) }) {
+                                Text(stringResource(R.string.sec_disable_confirm))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDisableConfirm = false }) { Text(stringResource(R.string.cancel)) }
+                        }
+                    )
+                }
             }
             // تحذير تعطيل البصمة: الـ PIN يبقى الطريق الوحيد — يُعرض عند التفعيل فقط
             if (biometricEnabled && biometricAvailable) {
@@ -210,6 +265,16 @@ fun SettingsScreen(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+            // فحص enrollment (Commit 4ب): مفعّلة لكن غير مسجّلة — تحذير بلا إلغاء تلقائي
+            if (biometricEnabled && biometricAvailable && !authVm.auth.isBioEnrolled()) {
+                Text(
+                    stringResource(R.string.sec_enroll_warn),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive }
+                )
+            }
             Text(
                 stringResource(R.string.autolock_title),
                 style = MaterialTheme.typography.bodyMedium,
@@ -217,12 +282,19 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
             AutoLockOptions(autoLockMs, onAutoLock)
+            // توضيح سلوك تغيير المهلة (Commit 4د): تُطبق فورًا (LaunchedEffect في App يزامن AuthManager)
+            Text(
+                stringResource(R.string.autolock_applied),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.bringIntoViewRequester(lockReq).padding(top = 2.dp)
+            )
             // إدارة مفتاح الاسترداد (Commit 2): الحالة + إعداد/إعادة إنشاء + تحقق بالعبارة الكاملة
             // انحراف موثق: التحقق بإدخال الـ 12 كلمة كاملة بدل عرض 3 كلمات — الكلمات لا تُخزَّن أبدًا فلا يمكن عرضها
             var showRecSetup by remember { mutableStateOf(false) }
             var showRecVerify by remember { mutableStateOf(false) }
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().bringIntoViewRequester(recReq).padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -255,7 +327,7 @@ fun SettingsScreen(
             // إعادة التعيين عبر قفل الجهاز (Commit 2): OFF افتراضيًا + حوار تحذير صريح عند التفعيل
             var showDevWarn by remember { mutableStateOf(false) }
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().bringIntoViewRequester(devReq).padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -322,7 +394,7 @@ fun SettingsScreen(
                 ShredMethodOptions(shredMethod, onShredMethod)
             }
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().bringIntoViewRequester(shotsReq).padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -715,3 +787,87 @@ private fun ThemeOption(value: String, label: String, selected: String, onPick: 
         Text(label, modifier = Modifier.padding(start = 8.dp))
     }
 }
+
+// بطاقة حالة الأمان (Commit 4أ): 5 مؤشرات بأيقونات هادئة (✓ أساسي، ⚠ ثالثي —
+// لا أحمر صارخ) + روابط انتقال للأقسام — ملخص فقط بلا أزرار إجراء + سجل المحاولات.
+@Composable
+private fun SecStatusCard(
+    unlockOk: Boolean,
+    unlockText: String,
+    recOn: Boolean,
+    devOn: Boolean,
+    autoLockText: String,
+    shotsBlocked: Boolean,
+    onUnlock: () -> Unit,
+    onRec: () -> Unit,
+    onDev: () -> Unit,
+    onLock: () -> Unit,
+    onShots: () -> Unit,
+    lastOkText: String,
+    failsTotal: Int
+) {
+    SectionCard(stringResource(R.string.sec_status_title), top = 0.dp) {
+        SecRow(ok = unlockOk, label = stringResource(R.string.sec_row_unlock), value = unlockText, onGo = onUnlock)
+        SecRow(
+            ok = recOn,
+            label = stringResource(R.string.sec_row_rec),
+            value = stringResource(if (recOn) R.string.sec_on else R.string.sec_off),
+            onGo = onRec
+        )
+        SecRow(
+            ok = true,
+            label = stringResource(R.string.sec_row_dev),
+            value = stringResource(if (devOn) R.string.sec_dev_on else R.string.sec_dev_off),
+            onGo = onDev
+        )
+        SecRow(ok = true, label = stringResource(R.string.sec_row_autolock), value = autoLockText, onGo = onLock)
+        SecRow(
+            ok = shotsBlocked,
+            label = stringResource(R.string.sec_row_shots),
+            value = stringResource(if (shotsBlocked) R.string.sec_shots_blocked else R.string.sec_shots_allowed),
+            onGo = onShots
+        )
+        // سجل المحاولات (Commit 4هـ — اختياري ونُفّذ): عدد وتوقيت فقط — بلا تفاصيل محتوى
+        Text(
+            stringResource(R.string.sec_last_ok, lastOkText),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            stringResource(R.string.sec_fails, failsTotal),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SecRow(ok: Boolean, label: String, value: String, onGo: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (ok) "✓" else "⚠",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.padding(end = 8.dp)
+        )
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = onGo) { Text(stringResource(R.string.sec_go)) }
+    }
+}
+
+// تنسيق التاريخ للسجل — محلي بلا مكتبات جديدة
+private fun secFmtDate(ms: Long): String = runCatching {
+    java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault())
+        .format(java.util.Date(ms))
+}.getOrDefault("—")
