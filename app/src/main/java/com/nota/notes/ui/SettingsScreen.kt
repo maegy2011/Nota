@@ -16,7 +16,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.relocation.rememberBringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
@@ -58,6 +57,7 @@ import com.nota.notes.data.SettingsStore
 
 // صفحة الإعدادات الموحدة: الأساسية + المتقدمة مدمجة في شاشة واحدة (قرار 23 سبتمبر 2026)
 // عن التطبيق انتقلت للقائمة الجانبية وفُك ارتباطها من هنا
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
     theme: String, lang: String,
@@ -119,11 +119,13 @@ fun SettingsScreen(
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val secScope = rememberCoroutineScope()
         val scrollState = rememberScrollState()
-        val bioReq = rememberBringIntoViewRequester()
-        val recReq = rememberBringIntoViewRequester()
-        val devReq = rememberBringIntoViewRequester()
-        val lockReq = rememberBringIntoViewRequester()
-        val shotsReq = rememberBringIntoViewRequester()
+        val hasRec by authVm.hasRecoveryKey.collectAsState()
+        val devCred by authVm.deviceCredEnabled.collectAsState()
+        val bioReq = remember { BringIntoViewRequester() }
+        val recReq = remember { BringIntoViewRequester() }
+        val devReq = remember { BringIntoViewRequester() }
+        val lockReq = remember { BringIntoViewRequester() }
+        val shotsReq = remember { BringIntoViewRequester() }
         fun go(req: BringIntoViewRequester) = secScope.launch { runCatching { req.bringIntoView() } }
         Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
         // بطاقة حالة الأمان (Commit 4): ملخص + روابط — بلا أزرار إجراء
@@ -177,8 +179,6 @@ fun SettingsScreen(
         SectionCard(stringResource(R.string.security_title)) {
             // بطاقة ترحيل المستخدمين الحاليين (Commit 2): بلا مفتاح استرداد — تظهر حتى مع بصمة مفعّلة
             val migVisible by authVm.migrationVisible.collectAsState()
-            val hasRec by authVm.hasRecoveryKey.collectAsState()
-            val devCred by authVm.deviceCredEnabled.collectAsState()
             if (migVisible) {
                 var showMigSetup by remember { mutableStateOf(false) }
                 Card(
