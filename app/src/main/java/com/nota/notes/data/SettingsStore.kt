@@ -86,6 +86,14 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
         fun trialDurationMs(): Long = TRIAL_DAYS * 24L * 3600L * 1000L
         fun isTrialActive(startMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean =
             startMs > 0L && nowMs < startMs + trialDurationMs()
+        // P2-C (TTL 30 يومًا، GDPR): سجل بلا مبرر تشغيلي بعد 30 يومًا يُحذف — يُرشّح عند القراءة والكتابة.
+        // السجلات بلا طابع زمني (at=0) تُعامل كمنتهية في المسارين معًا — سلوك موحد وموثق.
+        const val RESTORE_LOG_TTL_MS = 30L * 24 * 60 * 60 * 1000
+        // قرار القدم نقي (يُختبر على JVM بلا Robolectric) — مصدر الحقيقة الوحيد لمساري القراءة والكتابة.
+        fun isRestoreFresh(at: Long, now: Long = System.currentTimeMillis()): Boolean =
+            at >= now - RESTORE_LOG_TTL_MS
+        fun filterRestoreLog(records: List<RestoreRecord>, now: Long = System.currentTimeMillis()): List<RestoreRecord> =
+            records.filter { isRestoreFresh(it.at, now) }
         const val NAV_ADD = "add"
         const val NAV_SELF = "self"
         val DEFAULT_NAV_SLOTS = listOf("list", "favorites", NAV_SELF, "reminders", "settings")
@@ -150,13 +158,20 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
         runCatching {
             val arr = org.json.JSONArray(prefs[K_RESTORE_LOG] ?: "[]")
             List(arr.length()) { i -> RestoreRecord.fromJson(arr.getJSONObject(i)) }
-        }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList()).let { filterRestoreLog(it) } // P2-C: ترشيح TTL عند القراءة
     }
     suspend fun logRestore(rec: RestoreRecord) {
         ctx.settingsStore.edit { prefs ->
             val arr = runCatching { org.json.JSONArray(prefs[K_RESTORE_LOG] ?: "[]") }.getOrDefault(org.json.JSONArray())
+            // P2-C: ترشيح TTL عند الكتابة — يُحفظ الخام (بلا إعادة تسلسل) مع سقف 19 + الجديد = 20
+            val cutoff = System.currentTimeMillis() - RESTORE_LOG_TTL_MS
             val merged = org.json.JSONArray().put(rec.toJson())
-            for (i in 0 until minOf(arr.length(), 19)) merged.put(arr.get(i))
+            var kept = 0
+            for (i in 0 until arr.length()) {
+                if (kept >= 19) break
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optLong("at") >= cutoff) { merged.put(o); kept++ }
+            }
             prefs[K_RESTORE_LOG] = merged.toString()
         }
     }
