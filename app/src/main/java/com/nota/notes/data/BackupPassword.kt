@@ -3,7 +3,8 @@ package com.nota.notes.data
 // P1-B (أكتوبر 2026): قوة كلمة مرور .nota + توليد diceware — منطق خالص بلا اعتماديات (قابل للاختبار).
 // قرار القائمة: إنجليزية قصيرة (نمط BIP39) — سهلة النسخ والكتابة وعابرة للغات؛ الكلمات العربية
 // multibyte تُربك العد اليدوي عند الاستعادة على جهاز آخر. القائمة 243 كلمة مميزة ≈ 7.9 بت/كلمة،
-// 4 كلمات ≈ 32 بت entropy — تُشتق عبر PBKDF2 بـ 600k دورة في BackupManager.
+// 6 كلمات ≈ 47.5 بت entropy — تُشتق عبر PBKDF2 بـ 600k دورة في BackupManager.
+// (أُبقيت قائمة 243 عمدًا بدل EFF-7776: الأخيرة ملف كبير جديد بلا حاجة — 47.5 بت كافية للاستخدام الشخصي.)
 object BackupPassword {
     // 0 = ضعيفة (<8 أو شائعة/متتالية)، 1 = متوسطة (8-11)، 2 = قوية (12-15 + تنوع)، 3 = ممتازة (16+ أو diceware)
     fun strengthLevel(password: String): Int {
@@ -23,9 +24,17 @@ object BackupPassword {
         }
     }
 
-    fun generateDicewarePassword(words: Int = 4): String {
+    // 6 words × log2(243) ≈ 47.5 bits entropy
+    // At 10,000 PBKDF2-SHA256(600k) attempts/sec (10 GPUs):
+    // 2^47.5 / 10,000 / 3600 / 24 ≈ 3 years
+    // Acceptable for personal use. Consider 8 words for paranoid users.
+    fun generateDicewarePassword(words: Int = 6): String {
         val rnd = java.security.SecureRandom()
-        return (1..words).map { WORDS[rnd.nextInt(WORDS.size)] }.joinToString("-")
+        // بلا تكرار داخل العبارة الواحدة — Set يحجب أي سحب مكرر من SecureRandom.
+        val picked = LinkedHashSet<String>()
+        val n = words.coerceIn(1, WORDS.size)
+        while (picked.size < n) picked += WORDS[rnd.nextInt(WORDS.size)]
+        return picked.joinToString("-")
     }
 
     // 243 كلمة إنجليزية قصيرة مميزة صوتيًا (≈7.9 بت/كلمة)
