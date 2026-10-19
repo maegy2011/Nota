@@ -115,4 +115,10 @@ dependencies {
     implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc11")
     ksp("com.google.dagger:hilt-compiler:2.56.2")
     ksp("androidx.room:room-compiler:2.7.2")
+    // P2-A: unit tests (JVM + Robolectric) — versions pinned to Gradle cache (offline-safe)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.google.truth:truth:1.4.4")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
 }
