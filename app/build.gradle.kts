@@ -48,10 +48,15 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            // ⚠️ لا تفعّل التصغير: Hilt 2.52 يفلتر NotaApp_GeneratedInjector من الـ pipeline فيفشل R8،
-            // والـ dontwarn ينقل العطل لجهاز المستخدم (NoClassDefFoundError عند بدء التشغيل) — موثق 20 سبتمبر 2026 (v1.0.2)
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // P1-C (أكتوبر 2026): التصغير مفعّل حسب الخطة — لكن ⚠️ تعارض موثق:
+            // AGENTS.md (20 سبتمبر 2026، v1.0.2) يسجل أن Hilt 2.52 كسر الإقلاع مع R8
+            // (NotaApp_GeneratedInjector يُفلتر من الـ pipeline → NoClassDefFoundError عند البدء).
+            // المشروع الآن على Hilt 2.56.2 (قد يكون العطل مُصلحًا) وأُضيفت keeps مستهدفة في
+            // proguard-rules.pro — لكن هذا الـ commit لم يُبنَ على جهاز أبدًا (ممنوع البناء بلا أمر محمد).
+            // ⛔ التحقق على جهاز حقيقي (24 مسارًا في الخطة) إلزامي قبل أي بناء/نشر من هذا الـ commit.
+            // ممنوع إعادة التعطيل silently — أي كسر يُعالج بإضافة -keep منهجيًا لا بإطفاء minify.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
