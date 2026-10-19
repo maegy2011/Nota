@@ -37,6 +37,10 @@ class DbHolder @Inject constructor(
                     DbProvider.open(ctx, pass).also {
                         // أمان ذاكرة SQLCipher: بلا نسخ عادية للمفتاح في الذاكرة
                         runCatching { it.openHelper.writableDatabase.execSQL("PRAGMA cipher_memory_security = ON") }
+                        // P2-D (موثق لا مطبق): نعتمد defaults في SQLCipher 4.5.4 وهي:
+                        // cipher_page_size=4096, kdf_iter=256000, cipher_hmac_algorithm=HMAC_SHA512.
+                        // تحديدها صراحة لا يزيد الأمان (نفس القيم) ويخاطر بكسر DB قائمة من إصدار أقدم.
+                        // عند ترقية SQLCipher لنسخة بقيم مختلفة: أضف PRAGMAs صريحة AND مسار ترحيل للـ DBs القائمة.
                     }
                 } finally {
                     java.util.Arrays.fill(pass, 0) // مسح الـ passphrase من الذاكرة فور الفتح
