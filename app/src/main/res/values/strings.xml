@@ -122,6 +122,15 @@
     <string name="bk_file_bad">ملف تالف — ليس نسخة نوتا صالحة</string>
     <string name="bk_failed">فشلت العملية — حاول مجددًا</string>
     <string name="bk_pw_weak">كلمة قصيرة — الأطول أأمن للنسخة</string>
+    <string name="nota_password_too_short">كلمة المرور يجب أن تكون 8 أحرف على الأقل</string>
+    <string name="nota_password_weak">كلمة المرور ضعيفة — استخدم مزيجًا من الأحرف والأرقام</string>
+    <string name="nota_password_strength_weak">ضعيفة</string>
+    <string name="nota_password_strength_medium">متوسطة</string>
+    <string name="nota_password_strength_strong">قوية</string>
+    <string name="nota_password_strength_excellent">ممتازة</string>
+    <string name="nota_password_suggest">اقترح كلمة مرور قوية</string>
+    <string name="nota_password_copied">تم النسخ — احفظها في مكان آمن</string>
+    <string name="nota_password_hint">8 أحرف على الأقل. استخدم مزيجًا من الأحرف والأرقام والرموز.</string>
     <string name="bk_preview_title">معاينة النسخة</string>
     <string name="bk_preview_msg">الملاحظات: %1$d • بتاريخ: %2$s — ستُدمج بلا مسح لشيء، ونسخة أمان تلقائية تُحفظ أولًا</string>
     <string name="bk_preview_confirm">استعادة الدمج</string>

@@ -831,6 +831,37 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
         }
     }
 }
+// P1-B: مؤشر قوة كلمة مرور .nota — ضعيفة/متوسطة/قوية/ممتازة حسب الطول والتنوع والقوائم الشائعة.
+@Composable
+private fun PasswordStrengthIndicator(level: Int) {
+    val label = stringResource(
+        when (level) {
+            1 -> R.string.nota_password_strength_medium
+            2 -> R.string.nota_password_strength_strong
+            3 -> R.string.nota_password_strength_excellent
+            else -> R.string.nota_password_strength_weak
+        }
+    )
+    val color = when (level) {
+        1 -> MaterialTheme.colorScheme.error
+        2 -> MaterialTheme.colorScheme.primary
+        3 -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.error
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        LinearProgressIndicator(
+            progress = { (level + 1) / 4f },
+            color = color,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = color,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+}
 // 4) ملف .nota المشفر بكلمة مرور: تصدير/مشاركة + استعادة بالدمج — نُقل من الإعدادات المتقدمة (قرار 23 سبتمبر 2026)
 @Composable
 private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {}) {
@@ -938,18 +969,39 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             )
         }
-        val expWarn = expPw.length in 4..7 && expPw2.isEmpty()
+        // P1-B: حد أدنى 8 أحرف + فحص قوة — يطابق BackupManager.encryptEnvelope (الـ backend يرفض أيضًا).
+        val expStrong = expPw.length >= 8 && com.nota.notes.data.BackupManager.isStrongPassword(expPw)
         val expErr = when {
-            expPw.isNotEmpty() && expPw.length < 4 -> ctx.getString(R.string.bk_pw_short)
+            expPw.isNotEmpty() && expPw.length < 8 -> ctx.getString(R.string.nota_password_too_short)
+            expPw.length >= 8 && !com.nota.notes.data.BackupManager.isStrongPassword(expPw) -> ctx.getString(R.string.nota_password_weak)
             expPw2.isNotEmpty() && expPw != expPw2 -> ctx.getString(R.string.bk_pw_mismatch)
             else -> null
         }
         Text(
-            expErr ?: (if (expWarn) ctx.getString(R.string.bk_pw_weak) else expMsg) ?: "",
+            expErr ?: expMsg ?: "",
             style = MaterialTheme.typography.bodySmall,
             color = if (expErr != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
         )
+        if (expPw.isNotEmpty()) {
+            PasswordStrengthIndicator(level = com.nota.notes.data.BackupPassword.strengthLevel(expPw))
+        }
+        Text(
+            stringResource(R.string.nota_password_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        OutlinedButton(
+            onClick = {
+                val sug = com.nota.notes.data.BackupPassword.generateDicewarePassword()
+                expPw = sug; expPw2 = sug
+                copySensitive(ctx, sug)
+                expMsg = ctx.getString(R.string.nota_password_copied)
+            },
+            enabled = !busy && !locked,
+            modifier = Modifier.padding(top = 4.dp)
+        ) { Text(stringResource(R.string.nota_password_suggest)) }
         Button(
             onClick = {
                 scope.launch {
@@ -976,7 +1028,7 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                     busy = false; authVm.touch()
                 }
             },
-            enabled = !busy && expPw.length >= 4 && expPw == expPw2 && !locked,
+            enabled = !busy && expPw.length >= 8 && expStrong && expPw == expPw2 && !locked,
             modifier = Modifier.padding(top = 8.dp)
         ) { Text(stringResource(R.string.bk_exp_btn)) }
 

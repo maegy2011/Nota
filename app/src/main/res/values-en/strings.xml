@@ -122,6 +122,15 @@
     <string name="bk_file_bad">Bad file — not a valid Nota backup</string>
     <string name="bk_failed">Operation failed — retry</string>
     <string name="bk_pw_weak">Short password — longer is safer for backups</string>
+    <string name="nota_password_too_short">Password must be at least 8 characters</string>
+    <string name="nota_password_weak">Weak password — mix letters and numbers</string>
+    <string name="nota_password_strength_weak">Weak</string>
+    <string name="nota_password_strength_medium">Medium</string>
+    <string name="nota_password_strength_strong">Strong</string>
+    <string name="nota_password_strength_excellent">Excellent</string>
+    <string name="nota_password_suggest">Suggest a strong password</string>
+    <string name="nota_password_copied">Copied — keep it somewhere safe</string>
+    <string name="nota_password_hint">8+ characters. Mix letters, numbers and symbols.</string>
     <string name="bk_preview_title">Backup preview</string>
     <string name="bk_preview_msg">Notes: %1$d • Dated: %2$s — will merge without deleting anything, an automatic safety copy is saved first</string>
     <string name="bk_preview_confirm">Merge restore</string>

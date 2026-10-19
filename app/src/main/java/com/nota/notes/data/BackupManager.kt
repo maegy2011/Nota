@@ -82,8 +82,41 @@ object BackupManager {
         }
     } catch (e: Exception) { BackupKind.CORRUPT }
 
+    // P1-B (أكتوبر 2026): حد أدنى 8 أحرف + فحص قوة في الـ backend — أي مسار (UI/اختبار/مستقبلي)
+    // يمر من هنا. فك التشفير أدناه بلا فحص عمدًا (توافق خلفي مع ملفات قديمة بكلمة 4 أحرف).
+    const val MIN_PASSWORD_LEN = 8
+
+    fun isStrongPassword(password: String): Boolean {
+        val lower = password.lowercase()
+        // كلمات شائعة مرفوضة (الفحص على الصيغة الصغرى)
+        val common = setOf(
+            "password", "12345678", "qwertyui", "admin123", "letmein1",
+            "welcome1", "abc12345", "passw0rd", "iloveyou", "monkey12",
+            "dragon12", "master12", "shadow12", "sunshine", "princess",
+            "football", "baseball", "11111111", "00000000", "123456789",
+            "aaaaaaaa", "abcdefgh", "87654321"
+        )
+        if (lower in common) return false
+        // حرف واحد مكرر: "aaaaaaaa"
+        if (password.toSet().size == 1) return false
+        // متتاليات واضحة: "12345678" / "abcdefgh" (صعودًا أو هبوطًا)
+        if (isSequential(lower)) return false
+        return true
+    }
+
+    private fun isSequential(s: String): Boolean {
+        if (s.length < 2) return false
+        val ascending = s.zipWithNext().all { (a, b) -> b.code == a.code + 1 }
+        val descending = s.zipWithNext().all { (a, b) -> b.code == a.code - 1 }
+        return ascending || descending
+    }
+
     // غلاف النقل المشفر (27 سبتمبر 2026): نفس صيغة الملف كنص — لرفع Drive المشفر بكلمة المرور الثابتة
     fun encryptEnvelope(json: String, password: String): String {
+        require(password.length >= MIN_PASSWORD_LEN) {
+            "password must be at least $MIN_PASSWORD_LEN characters"
+        }
+        require(isStrongPassword(password)) { "password is too weak" }
         val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
         val key = deriveKey(password, salt, ITERS)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -95,7 +128,9 @@ object BackupManager {
     }
 
     // فك الغلاف — يرمي عند كلمة غلط أو نص تالف (الـ GCM يكشف العبث)
+    // P1-B: بلا فحص حد أدنى عمدًا — ملف قديم بكلمة 4 أحرف يجب أن يُستعاد (توافق خلفي).
     fun decryptEnvelope(text: String, password: String): String {
+        require(password.isNotEmpty()) { "password required" }
         val lines = text.split("\n")
         if (lines.size != 6 || lines[0] != HEADER || lines[1] != KIND_PW) throw IllegalArgumentException("bad format")
         val iters = lines[2].toIntOrNull()?.coerceIn(100_000, 2_000_000)
