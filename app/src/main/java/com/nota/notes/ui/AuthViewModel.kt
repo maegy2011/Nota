@@ -185,6 +185,14 @@ class AuthViewModel @Inject constructor(
 
     fun touch() = auth.touch()
 
+    // P1-A (أكتوبر 2026): قفل يمسح الذاكرة — flag + حافظة (AuthManager) + إغلاق DB (DbHolder).
+    // مسح الـ ViewModels يتم من الشاشة (NotesViewModel.clearSensitiveData) لأنها تملك المراجع.
+    // لا يمس منطق الفتح: أول dao()/get() بعد القفل يعيد الفتح تلقائيًا.
+    fun lockAndWipe() = viewModelScope.launch(Dispatchers.IO) {
+        runCatching { auth.lock() }
+        runCatching { dbHolder.closeDatabase() }
+    }
+
     private val _freshSetup = MutableStateFlow(false)
 
     fun setupPin(pin: String, onDone: () -> Unit) = viewModelScope.launch {

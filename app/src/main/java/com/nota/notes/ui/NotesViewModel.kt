@@ -38,8 +38,25 @@ class NotesViewModel @Inject constructor(
     // دمج فلتر الوسم والتصنيف في تدفق واحد — نسخة الكوروتين بلا combine سداسي
     private val tagAndCat = combine(tagFilter, categoryFilter) { t, c -> t to c }
 
+    // P1-A (أكتوبر 2026): نبضة الجلسة — onUnlocked() يعيد تشغيل كل التدفقات بعد إعادة فتح DB.
+    // (إغلاق DB أثناء القفل يُميت التدفقات المجموعة؛ بدون نبضة تتجمد القوائم على آخر قيمة.)
+    private val _sessionTick = MutableStateFlow(0)
     // فصل الحسابات: كل القوائم تُعاد مع تغيّر الحساب — فالخروج/الدخول يبدّل المعروض فورًا بلا تسرب
-    private val acctTick = repo.accountChanges()
+    private val acctTick = combine(repo.accountChanges(), _sessionTick) { a, _ -> a }
+
+    // P1-A: تُنادى عند القفل — تمسح نصوص البحث والفلاتر من الذاكرة (القوائم نفسها يعاد تحميلها عند الفتح).
+    fun clearSensitiveData() {
+        query.value = ""
+        archiveQuery.value = ""
+        favoriteQuery.value = ""
+        trashQuery.value = ""
+        colorFilter.value = null
+        tagFilter.value = null
+        categoryFilter.value = null
+    }
+
+    // P1-A: تُنادى بعد فتح القفل — تعيد تشغيل التدفقات ضد اتصال DB الجديد.
+    fun onUnlocked() { _sessionTick.value = _sessionTick.value + 1 }
     // الوسوم: كل الأسماء لصف الفلترة + خريطة noteId ← أسماء لعرضها أسفل البطاقة
     val allTags: StateFlow<List<String>> =
         acctTick.flatMapLatest { repo.allTags() }.map { list -> list.map { it.name } }

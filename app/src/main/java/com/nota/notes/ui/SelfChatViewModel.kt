@@ -19,11 +19,17 @@ class SelfChatViewModel @Inject constructor(
     private val _messages = MutableStateFlow<List<SelfMessage>>(emptyList())
     val messages: StateFlow<List<SelfMessage>> = _messages.asStateFlow()
 
-    init {
+    init { reload() }
+
+    // P1-A (أكتوبر 2026): إعادة الاشتراك بعد إعادة فتح DB — إغلاق DB أثناء القفل يُميت التدفق.
+    fun reload() {
         viewModelScope.launch {
             runCatching { holder.get().selfMessages().observe() }.getOrNull()?.collect { _messages.value = it }
         }
     }
+
+    // P1-A: تُنادى عند القفل — تمسح نصوص المحادثة من الذاكرة.
+    fun clearSensitiveData() { _messages.value = emptyList() }
 
     fun send(text: String) {
         val t = text.trim()

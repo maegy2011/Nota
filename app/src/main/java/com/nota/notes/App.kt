@@ -202,6 +202,8 @@ private fun AuthedApp(
     accountVm: AccountViewModel,
     foldersVm: FoldersViewModel = hiltViewModel(),
     cloudVm: CloudBackupViewModel = hiltViewModel(),
+    // P1-A: نفس نسخة SelfChatScreen (بلا NavHost فالمالك هو الـ Activity) — للمسح/إعادة التحميل عند القفل/الفتح
+    selfVm: com.nota.notes.ui.SelfChatViewModel = hiltViewModel(),
     newNoteSignal: Int = 0,
     openNoteId: Long = -1L
 ) {
@@ -236,6 +238,10 @@ private fun AuthedApp(
             override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
                 // إطفاء الشاشة = نسيان كل فتح خاص — المقفلة تتطلب تحديًا من جديد
                 foldersVm.relockAll()
+                // P1-A: مسح الذاكرة عند القفل — نصوص القوائم + إغلاق DB + الحافظة
+                vm.clearSensitiveData()
+                selfVm.clearSensitiveData()
+                authVm.lockAndWipe()
                 unlocked = false
             }
         }
@@ -259,6 +265,10 @@ private fun AuthedApp(
                 Lifecycle.Event.ON_RESUME -> {
                     // رسالة القفل التلقائي (Commit 3ز): إشعار لثانية عند العودة بعد انقضاء المهلة
                     if (unlocked && !authVm.auth.checkAutoLock()) {
+                        // P1-A: مسح الذاكرة عند القفل التلقائي — كمسار إطفاء الشاشة
+                        vm.clearSensitiveData()
+                        selfVm.clearSensitiveData()
+                        authVm.lockAndWipe()
                         unlocked = false
                         runCatching {
                             val label = autolockLabel(appCtx, autoLock)
@@ -323,7 +333,7 @@ private fun AuthedApp(
         LaunchedEffect(available) {
             if (available && !autoFired && activity != null) {
                 autoFired = true
-                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk() }, onErr = { if (it.isNotBlank()) bioError = it }, onLockout = { bioLockedOut = true })
+                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk(); vm.onUnlocked(); selfVm.reload() }, onErr = { if (it.isNotBlank()) bioError = it }, onLockout = { bioLockedOut = true })
             }
         }
         // زر رجوع الهاتف على شاشة القفل: يخرج من التطبيق (السلوك الافتراضي) — لا BackHandler يعترضه
@@ -332,7 +342,7 @@ private fun AuthedApp(
             onBiometric = {
                 if (activity != null) {
                     authVm.promptBiometric(activity,
-                        onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk() },
+                        onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk(); vm.onUnlocked(); selfVm.reload() },
                         onErr = { if (it.isNotBlank()) bioError = it },
                         onLockout = { bioLockedOut = true })
                 }
@@ -343,7 +353,7 @@ private fun AuthedApp(
             authVm = authVm,
             hasRecoveryKey = hasRecKey,
             deviceCredEnabled = devCredOn,
-            onRecovered = { unlocked = true; authVm.recordUnlockOk() },
+            onRecovered = { unlocked = true; authVm.recordUnlockOk(); vm.onUnlocked(); selfVm.reload() },
             bioEnrolled = authVm.auth.isBioEnrolled(),
             prelockWarn = prelock,
             successFlash = successFlash,
@@ -356,7 +366,7 @@ private fun AuthedApp(
                             Haptics.confirm(appCtx)
                             successFlash = true; pinError = null; prelock = false; lockUntil = 0L
                             kotlinx.coroutines.delay(300)
-                            unlocked = true; successFlash = false
+                            unlocked = true; successFlash = false; vm.onUnlocked(); selfVm.reload()
                             authVm.upgradePinIfLegacy(pin) // ترقية صامتة من SHA-256 إلى PBKDF2 بعد أول فتح ناجح
                         }
                         is com.nota.notes.ui.AuthViewModel.PinResult.Wrong -> {

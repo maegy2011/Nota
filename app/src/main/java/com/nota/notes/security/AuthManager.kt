@@ -105,5 +105,19 @@ class AuthManager(private val ctx: Context) {
         return ok
     }
 
-    fun lock() { _unlocked.value = false }
+    // P1-A (أكتوبر 2026): القفل = flag + مسح الحافظة (أفضل جهد، لا يكسر شيئًا).
+    // إغلاق DB ومسح الـ ViewModels يتم من AuthViewModel.lockAndWipe() (يملك DbHolder).
+    fun lock() {
+        _unlocked.value = false
+        clearClipboardBestEffort()
+    }
+
+    fun clearClipboardBestEffort() {
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            try {
+                (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as? android.content.ClipboardManager)?.clearPrimaryClip()
+            } catch (e: Exception) { /* المسح أفضل جهد — لا يكسر شيئًا */ }
+        }
+    }
 }

@@ -78,6 +78,15 @@ class DbHolder @Inject constructor(
         db = null
     }
 
+    // P1-A (أكتوبر 2026): إغلاق DB عند القفل لمسح الذاكرة — لا يمس منطق الفتح.
+    // أي استدعاء لاحق لـ get()/dao() يعيد الفتح تلقائيًا (المستودعات تطلب dao طازجًا كل مرة).
+    suspend fun closeDatabase() = close()
+
+    // للاختبار: هل الاتصال مفتوح حاليًا؟ — يُستخدم للتحقق من أن lock() أغلق فعلًا.
+    fun isOpen(): Boolean = db != null
+
+    suspend fun getOrOpen(): NoteDatabase = get()
+
     suspend fun folderDao(): FolderDao = get().folders()
 
     suspend fun tagDao(): TagDao = get().tags()
