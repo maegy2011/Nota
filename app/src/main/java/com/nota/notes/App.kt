@@ -155,12 +155,14 @@ fun App(
                     showSplashSpinner = true
                 }
             }
-            // تحرير شاشة النظام مع اكتمال البوابة (مهمة 1: مربوط بـ loaded الحقيقي لا مؤقت)
-            LaunchedEffect(loaded, splashAnimDone) {
-                if (loaded && splashAnimDone) com.nota.notes.ui.SplashGate.keepOnScreen = false
-            }
             // دمج Splash مع القفل (Commit 3و): مقفل من جلسة سابقة → شاشة القفل مباشرة بلا انتقال مزدوج
             val skipSplash = loaded && pinHash != null
+            // تحرير شاشة النظام مع اكتمال البوابة (مهمة 1: مربوط بـ loaded الحقيقي لا مؤقت)
+            // عند تخطي Compose Splash (مستخدم PIN حالي) لا تُستدعى onAnimationDone أبدًا —
+            // فتُحرَّر البوابة فور الجاهزية وإلا علقت شاشة النظام للأبد (ANR بعد البصمة)
+            LaunchedEffect(loaded, splashAnimDone, skipSplash) {
+                if (loaded && (splashAnimDone || skipSplash)) com.nota.notes.ui.SplashGate.keepOnScreen = false
+            }
             when {
                 !loaded || (!splashAnimDone && !skipSplash) -> LuxurySplashScreen(
                     onAnimationDone = { splashAnimDone = true },

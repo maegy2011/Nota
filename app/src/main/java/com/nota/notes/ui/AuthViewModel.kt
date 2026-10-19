@@ -8,9 +8,11 @@ import com.nota.notes.security.PassphraseStore
 import com.nota.notes.security.PinHash
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -74,9 +76,13 @@ class AuthViewModel @Inject constructor(
     }
 
     // حفظ hash مفتاح الاسترداد (لا كلمات أبدًا) — يُخفى البطاقة فور الإعداد
+    // PBKDF2 ثقيل (310k): يُحسب خارج الخيط الرئيسي — وإلا تجمّدت الواجهة (ANR)
     fun saveRecoveryKey(normalized: String, onDone: () -> Unit) = viewModelScope.launch {
         val salt = store.getOrCreateRecSalt()
-        store.saveRecoveryHash(com.nota.notes.security.PinHash.hash(normalized, salt))
+        val hash = withContext(Dispatchers.Default) {
+            com.nota.notes.security.PinHash.hash(normalized, salt)
+        }
+        store.saveRecoveryHash(hash)
         _hasRecoveryKey.value = true
         _migrationVisible.value = false
         onDone()
@@ -96,7 +102,10 @@ class AuthViewModel @Inject constructor(
         val norm = com.nota.notes.security.RecoveryKey.normalize(input)
         if (com.nota.notes.security.RecoveryKey.wordCount(norm) != 12) return RecoveryResult.Wrong
         val expected = store.readRecoveryHash() ?: return RecoveryResult.Wrong
-        return if (com.nota.notes.security.PinHash.verify(norm, expected)) {
+        val ok = withContext(Dispatchers.Default) {
+            com.nota.notes.security.PinHash.verify(norm, expected)
+        }
+        return if (ok) {
             RecoveryResult.Success
         } else {
             store.recordFailTotal()
@@ -142,7 +151,8 @@ class AuthViewModel @Inject constructor(
         val locked = store.pinLockUntil()
         if (locked > now) return PinResult.Locked(locked)
         val expected = _pinHash.value ?: return PinResult.Wrong(0)
-        return if (auth.unlockWithPin(pin, expected)) {
+        val ok = withContext(Dispatchers.Default) { auth.unlockWithPin(pin, expected) }
+        return if (ok) {
             store.resetPinFails()
             store.recordUnlockOk()
             _lastOk.value = now
@@ -173,12 +183,13 @@ class AuthViewModel @Inject constructor(
 
     fun setupPin(pin: String, onDone: () -> Unit) = viewModelScope.launch {
         val salt = store.getOrCreatePinSalt()
-        val hash = PinHash.hash(pin, salt)
+        // hash + تحقق (2×310k) خارج الرئيسي — وإلا ANR عند الإنشاء/التخطي
+        val hash = withContext(Dispatchers.Default) { PinHash.hash(pin, salt) }
         store.savePinHashFull(hash)
         store.savePinMin6(pin.length >= 6)
         _pinMin6Ok.value = pin.length >= 6
         _pinHash.value = store.readPinHash()
-        auth.unlockWithPin(pin, _pinHash.value ?: return@launch)
+        withContext(Dispatchers.Default) { auth.unlockWithPin(pin, _pinHash.value ?: return@withContext) }
         _freshSetup.value = true
         onDone()
     }
@@ -186,9 +197,10 @@ class AuthViewModel @Inject constructor(
     // ترقية صامتة: PIN قديم (SHA-256) يُعاد تشفيره بالصيغة الجديدة بعد أول فتح ناجح — بلا أي خطوة من المستخدم
     fun upgradePinIfLegacy(pin: String) = viewModelScope.launch {
         val cur = _pinHash.value ?: return@launch
-        if (PinHash.isLegacy(cur) && PinHash.verify(pin, cur)) {
+        val legacyOk = PinHash.isLegacy(cur) && withContext(Dispatchers.Default) { PinHash.verify(pin, cur) }
+        if (legacyOk) {
             val salt = store.getOrCreatePinSalt()
-            val upgraded = PinHash.hash(pin, salt)
+            val upgraded = withContext(Dispatchers.Default) { PinHash.hash(pin, salt) }
             store.savePinHashFull(upgraded)
             _pinHash.value = store.readPinHash()
         }
@@ -200,7 +212,7 @@ class AuthViewModel @Inject constructor(
     // فيُصفَّر عدّاد شاشة القفل هنا — لا عند نجاح البصمة وحدها.
     fun changePin(pin: String, onDone: () -> Unit) = viewModelScope.launch {
         val salt = store.getOrCreatePinSalt()
-        val hash = PinHash.hash(pin, salt)
+        val hash = withContext(Dispatchers.Default) { PinHash.hash(pin, salt) }
         store.savePinHashFull(hash)
         store.savePinMin6(pin.length >= 6)
         _pinMin6Ok.value = pin.length >= 6

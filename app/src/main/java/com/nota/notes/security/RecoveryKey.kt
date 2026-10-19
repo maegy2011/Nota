@@ -54,13 +54,13 @@ object RecoveryKey {
     )
 
     init {
-        check(WORDS.size == 256) { "wordlist must be 256" }
-        check(WORDS.distinct().size == 256) { "wordlist words must be unique" }
+        check(WORDS.size >= 256) { "wordlist must hold at least 256 words" }
+        check(WORDS.distinct().size == WORDS.size) { "wordlist words must be unique" }
     }
 
     fun generate(): List<String> {
         val rnd = SecureRandom()
-        return List(12) { WORDS[rnd.nextInt(256)] }
+        return List(12) { WORDS[rnd.nextInt(WORDS.size)] }
     }
 
     fun normalize(input: String): String =
