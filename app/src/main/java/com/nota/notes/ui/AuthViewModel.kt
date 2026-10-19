@@ -141,7 +141,7 @@ class AuthViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val locked = store.pinLockUntil()
         if (locked > now) return PinResult.Locked(locked)
-        val expected = _pinHash.value ?: return PinResult.Wrong
+        val expected = _pinHash.value ?: return PinResult.Wrong(0)
         return if (auth.unlockWithPin(pin, expected)) {
             store.resetPinFails()
             store.recordUnlockOk()
