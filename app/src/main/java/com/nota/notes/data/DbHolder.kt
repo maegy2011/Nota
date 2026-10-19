@@ -83,8 +83,12 @@ class DbHolder @Inject constructor(
     suspend fun closeDatabase() = close()
 
     // للاختبار: هل الاتصال مفتوح حاليًا؟ — يُستخدم للتحقق من أن lock() أغلق فعلًا.
+    // lock-free عمدًا: قراءة @Volatile Boolean بلا Mutex (لا سباق — القيمة إرشادية للاختبار فقط).
     fun isOpen(): Boolean = db != null
 
+    // P1-B fix 3 (تحقق أكتوبر 2026): getOrOpen() تمر عبر get() — نفس الـ Mutex الوحيد أعلاه يغطي
+    // get()/close()/closeDatabase() كلها، فلا سباق فتح-مزدوج ولا close-أثناء-open.
+    // بلا deadlock: DbProvider.open() ورقة (Room builder) لا تنادي getOrOpen() أبدًا.
     suspend fun getOrOpen(): NoteDatabase = get()
 
     suspend fun folderDao(): FolderDao = get().folders()
