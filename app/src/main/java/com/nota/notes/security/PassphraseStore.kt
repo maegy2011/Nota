@@ -168,6 +168,16 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
         ctx.secureStore.edit { it[K_PIN_CARD_DISMISSED] = true }
     }
 
+    // إعادة ضبط التطبيق من شاشة القفل (مراجعة أكتوبر 2026): مسح كل بيانات القفل —
+    // الـ PIN والملح والدرع وحالة الترحيل — مع بقية المفاتيح لاحقًا في Commit 2.
+    // قاعدة البيانات تُحذف من AuthViewModel.factoryReset (ملف nota.db) في نفس العملية.
+    suspend fun clearAllLockData() = pinMutex.withLock {
+        ctx.secureStore.edit {
+            it.remove(K_PIN); it.remove(K_SALT); it.remove(K_FAILS); it.remove(K_LOCK_UNTIL)
+            it.remove(K_PIN_MIN6); it.remove(K_PIN_CARD_DISMISSED)
+        }
+    }
+
     // إسقاط تحذير الروت نهائيًا — خيار صريح من المستخدم
     private val K_ROOT_DISMISSED = androidx.datastore.preferences.core.booleanPreferencesKey("root_warn_dismissed")
 

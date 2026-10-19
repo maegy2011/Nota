@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -413,6 +416,60 @@ fun SettingsScreen(
         }
         SectionCard(stringResource(R.string.changepin_title)) {
             ChangePinBlock(authVm)
+            // إجراء «إعادة ضبط PIN» مستقل — نفس شيت الاسترداد (مراجعة أكتوبر 2026 — Commit 1)
+            var showReset by remember { mutableStateOf(false) }
+            var resetNewPin by remember { mutableStateOf(false) }
+            var resetErr by remember { mutableStateOf<String?>(null) }
+            val resetCtx = LocalContext.current
+            val resetAct = resetCtx as? androidx.fragment.app.FragmentActivity
+            Row(
+                Modifier.fillMaxWidth().clickable { showReset = true; resetErr = null; resetNewPin = false }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.reset_pin_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.reset_pin_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            RecoverySheet(
+                visible = showReset,
+                onDismiss = { showReset = false; resetNewPin = false; resetErr = null },
+                canBio = authVm.canBiometric() && resetAct != null,
+                bioEnrolled = authVm.auth.isBioEnrolled(),
+                hasRecoveryKey = false,
+                deviceCredEnabled = false,
+                onBio = {
+                    resetAct?.let { a ->
+                        authVm.promptBiometric(
+                            a,
+                            onOk = { resetNewPin = true; resetErr = null },
+                            onErr = { resetErr = resetCtx.getString(R.string.recover_generic_fail) }
+                        )
+                    }
+                },
+                onRecoveryKey = {},
+                recoveryError = resetErr,
+                onDeviceCred = {},
+                onFactoryReset = { authVm.factoryReset {} },
+                newPinContent = if (resetNewPin) {
+                    {
+                        Text(
+                            stringResource(R.string.recover_newpin_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SetPinScreen(onDone = { np ->
+                            authVm.changePin(np) { showReset = false; resetNewPin = false }
+                        })
+                    }
+                } else null
+            )
         }
         if (alarmHealth != null) {
             SectionCard(stringResource(R.string.health_title)) {

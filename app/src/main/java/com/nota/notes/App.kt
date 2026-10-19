@@ -302,6 +302,8 @@ private fun AuthedApp(
             bioLockedOut = bioLockedOut,
             rootNeverDismissed = rootNeverDismissed,
             onRootNeverShow = { authVm.dismissRootWarn() },
+            authVm = authVm,
+            onRecovered = { unlocked = true },
             onPin = { pin ->
                 if (pin.isEmpty()) return@LockScreen
                 scope.launch {

@@ -49,6 +49,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
 
+// سلسلة fallback للاسترداد (موثقة بأمر مراجعة أكتوبر 2026):
+// PIN fails → biometric (if enrolled) → recovery key (if set)
+// → device credential (if enabled) → full app reset (last resort)
 @Composable
 fun LockScreen(
     showBiometric: Boolean,
@@ -62,7 +65,12 @@ fun LockScreen(
     bioLockedOut: Boolean = false,
     // إسقاط تحذير الروت نهائيًا (مخزن) — والجلسة محلية أدناه
     rootNeverDismissed: Boolean = false,
-    onRootNeverShow: () -> Unit = {}
+    onRootNeverShow: () -> Unit = {},
+    // مسارات الاسترداد (مراجعة أكتوبر 2026 — Commit 1): الشيت يعرض المتاح فقط
+    authVm: AuthViewModel,
+    hasRecoveryKey: Boolean = false,
+    deviceCredEnabled: Boolean = false,
+    onRecovered: () -> Unit = {}
 ) {
     var pin by remember { mutableStateOf("") }
     // قفل اتجاه الشاشة عموديًا طوال عرض القفل — يُستعاد السابق عند الخروج
@@ -184,6 +192,56 @@ fun LockScreen(
         Button(onClick = { onPin(pin) }, enabled = pin.isNotEmpty() && !isLocked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.unlock_pin))
         }
+        // رابط «نسيت PIN؟» — ظاهر دائمًا حتى أثناء قفل الدرع (مراجعة أكتوبر 2026)
+        var showRecovery by remember { mutableStateOf(false) }
+        var recoverNewPin by remember { mutableStateOf(false) }
+        var recoverErr by remember { mutableStateOf<String?>(null) }
+        TextButton(onClick = { showRecovery = true; recoverErr = null; recoverNewPin = false }) {
+            Text(
+                stringResource(R.string.forgot_pin_link),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        val act = activity as? androidx.fragment.app.FragmentActivity
+        RecoverySheet(
+            visible = showRecovery,
+            onDismiss = { showRecovery = false; recoverNewPin = false; recoverErr = null },
+            canBio = showBiometric && act != null,
+            bioEnrolled = showBiometric,
+            hasRecoveryKey = hasRecoveryKey,
+            deviceCredEnabled = deviceCredEnabled,
+            onBio = {
+                act?.let { a ->
+                    authVm.promptBiometric(
+                        a,
+                        // نجاح البصمة هنا ≠ تصفير الدرع — التصفير عند تأكيد PIN الجديد فقط (changePin)
+                        onOk = { recoverNewPin = true; recoverErr = null },
+                        onErr = { recoverErr = ctx.getString(R.string.recover_generic_fail) }
+                    )
+                }
+            },
+            onRecoveryKey = { recoverErr = ctx.getString(R.string.recover_generic_fail) },
+            recoveryError = recoverErr,
+            onDeviceCred = {},
+            onFactoryReset = { authVm.factoryReset {} },
+            newPinContent = if (recoverNewPin) {
+                {
+                    Text(
+                        stringResource(R.string.recover_newpin_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SetPinScreen(onDone = { np ->
+                        authVm.changePin(np) {
+                            showRecovery = false; recoverNewPin = false; onRecovered()
+                        }
+                    })
+                }
+            } else null
+        )
         if (rooted == true && !rootSessionDismissed && !rootNeverDismissed) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),

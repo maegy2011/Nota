@@ -161,6 +161,55 @@ fun ChangePinBlock(authVm: AuthViewModel) {
             ) { Text(stringResource(R.string.changepin_open)) }
         }
         1 -> Column(Modifier.padding(top = 8.dp)) {
+            // «نسيت PIN الحالي؟» قبل الإدخال — نفس شيت الاسترداد (مراجعة أكتوبر 2026)
+            var showRecovery by remember { mutableStateOf(false) }
+            var recoverNewPin by remember { mutableStateOf(false) }
+            var recoverErr by remember { mutableStateOf<String?>(null) }
+            TextButton(onClick = { showRecovery = true; recoverErr = null; recoverNewPin = false }) {
+                Text(
+                    stringResource(R.string.forgot_current_pin),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val enrolled = authVm.auth.isBioEnrolled()
+            RecoverySheet(
+                visible = showRecovery,
+                onDismiss = { showRecovery = false; recoverNewPin = false; recoverErr = null },
+                canBio = bioAvailable,
+                bioEnrolled = enrolled,
+                hasRecoveryKey = false,
+                deviceCredEnabled = false,
+                onBio = {
+                    activity?.let { a ->
+                        authVm.promptBiometric(
+                            a,
+                            onOk = { recoverNewPin = true; recoverErr = null },
+                            onErr = { recoverErr = ctx.getString(R.string.recover_generic_fail) }
+                        )
+                    }
+                },
+                onRecoveryKey = {},
+                recoveryError = recoverErr,
+                onDeviceCred = {},
+                onFactoryReset = { authVm.factoryReset {} },
+                newPinContent = if (recoverNewPin) {
+                    {
+                        Text(
+                            stringResource(R.string.recover_newpin_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SetPinScreen(onDone = { np ->
+                            authVm.changePin(np) {
+                                showRecovery = false; recoverNewPin = false
+                                step = 3; current = ""; error = false; lockMsg = null
+                            }
+                        })
+                    }
+                } else null
+            )
             // اللوحة الواحدة هنا أيضًا — بلا كيبورد نظام + زر تحقق يدوي
             PinPad(
                 pin = current,
@@ -184,11 +233,12 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                         .semantics { liveRegion = LiveRegionMode.Assertive }
                 )
             }
-            // مسار استرداد: البصمة الناجحة = مالك شرعي فيُتجاوز إدخال الحالي — الفشل رسالة عامة بلا تفاصيل
-            if (bioAvailable) {
+            // مسار استرداد: زر البصمة ظاهر دائمًا — معطّل مع نص واضح إن غير مسجّلة (مراجعة أكتوبر 2026)
+            // تمييز «غير مسجّلة» (حالة إعداد) عن «فشل التحقق» (خطأ) — لا كشف تفاصيل
+            if (activity != null) {
                 TextButton(
                     onClick = {
-                        activity?.let { a ->
+                        activity.let { a ->
                             authVm.promptBiometric(
                                 a,
                                 onOk = {
@@ -199,8 +249,17 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                             )
                         }
                     },
+                    enabled = enrolled,
                     modifier = Modifier.padding(top = 4.dp)
                 ) { Text(stringResource(R.string.pin_recover_forgot)) }
+                if (!enrolled) {
+                    Text(
+                        stringResource(R.string.recover_bio_unenrolled),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
             if (recoverMsg != null) {
                 Text(

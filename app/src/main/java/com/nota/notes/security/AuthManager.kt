@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class AuthManager(private val ctx: Context) {
+    val appContext: Context get() = ctx
     private val _unlocked = MutableStateFlow(false)
     val unlocked: StateFlow<Boolean> = _unlocked
     var lastActive: Long = System.currentTimeMillis()
@@ -30,6 +31,34 @@ class AuthManager(private val ctx: Context) {
     fun canBiometric(): Boolean {
         val m = BiometricManager.from(ctx)
         return m.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    // حالة التسجيل (مراجعة أكتوبر 2026): تمييز «غير مسجّلة» (إعداد) عن «فشل تحقق» (خطأ)
+    fun biometricStatus(): Int {
+        val m = BiometricManager.from(ctx)
+        return m.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK)
+    }
+
+    fun isBioEnrolled(): Boolean = biometricStatus() == BiometricManager.BIOMETRIC_SUCCESS
+
+    // مصادقة قفل الجهاز (مراجعة أكتوبر 2026 — Commit 2): بلا CryptoObject — مقايضة موثقة:
+    // الخصم يحتاج PIN الجهاز نفسه؛ الخيار اختياري وافتراضيًا OFF مع تحذير صريح عند التفعيل.
+    fun deviceCredential(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit) {
+        val executor = ContextCompat.getMainExecutor(ctx)
+        val prompt = BiometricPrompt(activity, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) {
+                    _unlocked.value = true; touch(); onOk()
+                }
+                override fun onAuthenticationError(c: Int, s: CharSequence) { onErr(s.toString()) }
+                override fun onAuthenticationFailed() { onErr("") }
+            })
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Nota")
+            .setSubtitle(ctx.getString(ctx.resources.getIdentifier("bio_sub", "string", ctx.packageName)))
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .build()
+        prompt.authenticate(info)
     }
 
     fun biometric(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit, onLockout: () -> Unit = {}) {

@@ -111,12 +111,31 @@ class AuthViewModel @Inject constructor(
 
     // تغيير الرقم السري من الإعدادات المتقدمة — يتحقق من الحالي أولًا في الشاشة، وهنا يُحفظ الجديد فقط
     // بلا freshSetup حتى لا يُفتح التطبيق مباشرة بعد التغيير
+    // (مراجعة أكتوبر 2026 — إغلاق ثغرة الدرع المشترك 2د): تأكيد PIN جديد = مالك شرعي،
+    // فيُصفَّر عدّاد شاشة القفل هنا — لا عند نجاح البصمة وحدها.
     fun changePin(pin: String, onDone: () -> Unit) = viewModelScope.launch {
         val salt = store.getOrCreatePinSalt()
         val hash = PinHash.hash(pin, salt)
         store.savePinHashFull(hash)
         store.savePinMin6(pin.length >= 6)
         _pinMin6Ok.value = pin.length >= 6
+        store.resetPinFails()
+        onDone()
+    }
+
+    // إعادة ضبط التطبيق من شاشة القفل (الخيار الأخير): مسح PIN والدرع + حذف قاعدة
+    // البيانات المشفرة — لا رجعة. يُنادى بعد التأكيد المزدوج في RecoverySheet.
+    fun factoryReset(onDone: () -> Unit) = viewModelScope.launch {
+        store.clearAllLockData()
+        runCatching {
+            val f = auth.appContext.getDatabasePath("nota.db")
+            if (f.exists()) f.delete()
+            auth.appContext.getDatabasePath("nota.db-shm").delete()
+            auth.appContext.getDatabasePath("nota.db-wal").delete()
+        }
+        _pinHash.value = null
+        _pinMin6Ok.value = null
+        _pinCardDismissed.value = false
         onDone()
     }
 

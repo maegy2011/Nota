@@ -170,7 +170,7 @@
     <string name="pindots_filled_fmt">%1$d of %2$d digits entered</string>
     <string name="pin_recover_forgot">Forgot PIN? Recover with biometrics</string>
     <string name="pin_recover_fail">Couldn\'t verify — try again</string>
-    <string name="setpin_norecover_warn">⚠️ Save your PIN somewhere safe — it can\'t be recovered</string>
+    <string name="setpin_norecover_warn">⚠️ Without biometrics or a recovery key, forgetting your PIN means losing your notes forever if the app is deleted or its data cleared — the Keystore does not survive reinstall</string>
     <string name="locked_sub_throttled">Briefly locked against guessing — enter your PIN when the timer ends</string>
     <string name="locked_sub_pinonly">Encrypted on your device — enter your PIN to unlock</string>
     <string name="bio_locked_temp">Biometrics briefly locked — use your PIN</string>
@@ -928,4 +928,25 @@
     <string name="tpl_custom_name">Template name</string>
     <string name="tpl_custom_preview">%1$d characters will be saved</string>
     <string name="tpl_custom_saved">Saved templates</string>
+    <string name="forgot_pin_link">Forgot PIN?</string>
+    <string name="recover_title">Recover access</string>
+    <string name="recover_bio">Use biometrics</string>
+    <string name="recover_bio_unenrolled">No biometrics enrolled on this device — add one in system settings first</string>
+    <string name="recover_key">Use recovery key</string>
+    <string name="recover_key_hint">Recovery key (12 words)</string>
+    <string name="recover_generic_fail">Couldn\'t verify — try again</string>
+    <string name="recover_device">Reset via device lock</string>
+    <string name="recover_wipe">Reset app (erase everything)</string>
+    <string name="recover_wipe_sub">If none of the options above work, this is the last resort. Everything will be lost.</string>
+    <string name="recover_wipe_confirm1">Everything will be erased permanently</string>
+    <string name="recover_wipe_confirm1_msg">All your notes, the encrypted database and the access key will be deleted. Nothing can be recovered afterwards.</string>
+    <string name="recover_wipe_next">Continue</string>
+    <string name="recover_wipe_confirm2">Final confirmation</string>
+    <string name="recover_wipe_confirm2_msg">Type "%1$s" to confirm — this step erases everything immediately.</string>
+    <string name="recover_wipe_word">erase</string>
+    <string name="recover_wipe_confirm">Erase everything</string>
+    <string name="recover_newpin_title">Set a new PIN</string>
+    <string name="reset_pin_title">Reset PIN</string>
+    <string name="reset_pin_sub">If you forgot your current PIN, you can set a new one with biometrics or the recovery key.</string>
+    <string name="forgot_current_pin">Forgot current PIN?</string>
 </resources>
