@@ -129,6 +129,9 @@ class ReminderReceiver : BroadcastReceiver() {
         val snooze = ReminderScheduler.snoozePending(ctx, noteId)
         val notif = NotificationCompat.Builder(ctx, ReminderScheduler.CHANNEL)
             .setSmallIcon(R.drawable.ic_notif_bell)
+            // P2-B: SECRET دائمًا (لا شرطيًا) — لا يُعرض أي جزء من الإشعار على شاشة القفل
+            // أبدًا، بغض النظر عن إعداد "show sensitive content" في النظام. تطبيق خصوصية.
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setContentTitle(nTitle)
             .setContentText(nText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(nText))
