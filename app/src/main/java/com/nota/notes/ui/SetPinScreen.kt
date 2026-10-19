@@ -3,6 +3,7 @@ package com.nota.notes.ui
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,12 +37,15 @@ import androidx.compose.ui.unit.dp
 import com.nota.notes.R
 
 @Composable
-fun SetPinScreen(onDone: (String) -> Unit) {
+fun SetPinScreen(onDone: (String) -> Unit, authVm: AuthViewModel? = null) {
     // مرحلتان بنفس اللوحة الواحدة: إدخال ثم تأكيد — بلا حقلين مكررين
-    var step by remember { mutableStateOf(0) } // 0 إدخال، 1 تأكيد
+    // + خطوة استرداد ثانية عند الإعداد الأول (مراجعة أكتوبر 2026 — Commit 2)
+    var step by remember { mutableStateOf(0) } // 0 إدخال، 1 تأكيد، 2 استرداد
     var first by remember { mutableStateOf("") }
     var current by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var recMode by remember { mutableStateOf(0) } // 0 اختيار، 1 إنشاء مفتاح
+    var riskAck by remember { mutableStateOf(false) }
     val mismatch = stringResource(R.string.pin_mismatch)
     val short = stringResource(R.string.pin_short)
     val ctx = LocalContext.current
@@ -118,12 +122,66 @@ fun SetPinScreen(onDone: (String) -> Unit) {
                         current != first -> mismatch
                         else -> null
                     }
-                    if (error == null) { Haptics.confirm(ctx); onDone(current) }
+                    if (error == null) {
+                        Haptics.confirm(ctx)
+                        // الإعداد الأول (authVm موجود) → خطوة الاسترداد؛ التغيير من الإعدادات → حفظ مباشر
+                        if (authVm != null) { step = 2 } else { onDone(current) }
+                    }
                 }
             },
             enabled = current.length >= 6,
             modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(if (step == 0) R.string.verify_btn else R.string.setpin_done)) }
     }
+    }
+    // خطوة الاسترداد الثانية (Commit 2): بصمة / مفتاح استرداد / إقرار مخاطرة — تُعرض فوق نفس الشاشة
+    if (step == 2 && authVm != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.reckey_choice_title)) },
+            text = {
+                Column(Modifier.fillMaxWidth()) {
+                    if (recMode == 0) {
+                        val bioOk = authVm.canBiometric()
+                        Text(
+                            if (bioOk) stringResource(R.string.reckey_choice_bio_ok)
+                            else stringResource(R.string.reckey_choice_bio_no),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { onDone(first) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.reckey_choice_bio_btn)) }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { recMode = 1 },
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                        ) { Text(stringResource(R.string.reckey_choice_key_btn)) }
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.Checkbox(checked = riskAck, onCheckedChange = { riskAck = it })
+                            Text(
+                                stringResource(R.string.reckey_choice_risk),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    } else {
+                        RecoveryKeySetup(authVm = authVm, onDone = { onDone(first) }, onBack = { recMode = 0 })
+                    }
+                }
+            },
+            confirmButton = {
+                if (recMode == 0) {
+                    androidx.compose.material3.TextButton(onClick = { onDone(first) }, enabled = riskAck) {
+                        Text(stringResource(R.string.reckey_choice_skip))
+                    }
+                }
+            },
+            dismissButton = {}
+        )
     }
 }

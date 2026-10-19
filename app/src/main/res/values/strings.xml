@@ -970,4 +970,38 @@
     <string name="reset_pin_title">إعادة ضبط PIN</string>
     <string name="reset_pin_sub">إذا نسيت PIN الحالي، يمكنك تعيين PIN جديد عبر البصمة أو مفتاح الاسترداد.</string>
     <string name="forgot_current_pin">نسيت PIN الحالي؟</string>
+    <string name="reckey_title">مفتاح الاسترداد — احفظه الآن</string>
+    <string name="reckey_warn">هذه الكلمات هي الطريقة الوحيدة لاسترداد ملاحظاتك إن نسيت PIN وفشلت البصمة. اكتبها واحفظها في مكان آمن — لن تُعرض مرة أخرى.</string>
+    <string name="reckey_copy">انسخ</string>
+    <string name="reckey_copied">نُسخ — الصقه في مكان آمن ثم امسحه من هنا</string>
+    <string name="reckey_verify_go">تحقّق أنك حفظتها</string>
+    <string name="reckey_quiz_title">تأكيد الحفظ</string>
+    <string name="reckey_quiz_sub">أدخل الكلمات المطلوبة بالترتيب الصحيح — لا يمكن تخطي هذه الخطوة</string>
+    <string name="reckey_word_fmt">الكلمة رقم %1$d</string>
+    <string name="reckey_quiz_fail">غير متطابقة — أعد كتابة الكلمات من الورقة</string>
+    <string name="reckey_confirm">تأكيد وحفظ</string>
+    <string name="reckey_reshow">عرض الكلمات مجددًا</string>
+    <string name="reckey_choice_title">كيف تريد استرداد الوصول؟</string>
+    <string name="reckey_choice_bio_ok">البصمة متاحة على هذا الجهاز — يمكنك تفعيلها من الإعدادات بعد إنشاء PIN.</string>
+    <string name="reckey_choice_bio_no">لا توجد بصمة مسجّلة — نوصي بمفتاح الاسترداد.</string>
+    <string name="reckey_choice_bio_btn">سأفعّل البصمة — متابعة</string>
+    <string name="reckey_choice_key_btn">إنشاء مفتاح استرداد</string>
+    <string name="reckey_choice_risk">أفهم المخاطرة: لا بصمة ولا مفتاح — نسيان PIN = فقدان كل شيء</string>
+    <string name="reckey_choice_skip">متابعة بدون استرداد</string>
+    <string name="mig_title">لا يوجد مسار استرداد لـ PIN</string>
+    <string name="mig_sub">أضف بصمة أو مفتاح استرداد الآن — بدونهما نسيان PIN = فقدان الملاحظات نهائيًا.</string>
+    <string name="mig_setup">إعداد الآن</string>
+    <string name="mig_later">لاحقًا</string>
+    <string name="reckey_status_on">مفتاح الاسترداد: مُعد</string>
+    <string name="reckey_status_off">مفتاح الاسترداد: غير مُعد</string>
+    <string name="reckey_setup_btn">إعداد مفتاح الاسترداد</string>
+    <string name="reckey_regen_btn">إعادة إنشاء مفتاح الاسترداد</string>
+    <string name="reckey_verify_btn">تحقق من مفتاح الاسترداد</string>
+    <string name="reckey_verify_hint">أدخل الكلمات الـ 12 كاملة للتحقق من حفظك</string>
+    <string name="reckey_ok">المفتاح صحيح — حفظك سليم</string>
+    <string name="devcred_title">إعادة التعيين عبر قفل الجهاز</string>
+    <string name="devcred_sub">السماح بإعادة تعيين PIN عبر PIN أو نقش الجهاز</string>
+    <string name="devcred_warn_title">تحذير أمني</string>
+    <string name="devcred_warn_msg">هذا يسمح لأي شخص يعرف PIN جهازك بإعادة تعيين PIN التطبيق والوصول لملاحظاتك. لا تفعّل هذا إن كان جهازك مشتركًا.</string>
+    <string name="devcred_confirm">أفهم، فعّل</string>
 </resources>

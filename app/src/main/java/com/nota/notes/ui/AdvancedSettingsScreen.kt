@@ -173,25 +173,47 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                 )
             }
             val enrolled = authVm.auth.isBioEnrolled()
+            val hasRec by authVm.hasRecoveryKey.collectAsState()
+            val devCred by authVm.deviceCredEnabled.collectAsState()
+            val genericFail = stringResource(R.string.recover_generic_fail)
             RecoverySheet(
                 visible = showRecovery,
                 onDismiss = { showRecovery = false; recoverNewPin = false; recoverErr = null },
                 canBio = bioAvailable,
                 bioEnrolled = enrolled,
-                hasRecoveryKey = false,
-                deviceCredEnabled = false,
+                hasRecoveryKey = hasRec,
+                deviceCredEnabled = devCred,
                 onBio = {
                     activity?.let { a ->
                         authVm.promptBiometric(
                             a,
                             onOk = { recoverNewPin = true; recoverErr = null },
-                            onErr = { recoverErr = ctx.getString(R.string.recover_generic_fail) }
+                            onErr = { recoverErr = genericFail }
                         )
                     }
                 },
-                onRecoveryKey = {},
+                onRecoveryKey = { key ->
+                    scope.launch {
+                        when (val r = authVm.verifyRecoveryKey(key)) {
+                            is AuthViewModel.RecoveryResult.Success -> { recoverNewPin = true; recoverErr = null }
+                            is AuthViewModel.RecoveryResult.Wrong -> recoverErr = genericFail
+                            is AuthViewModel.RecoveryResult.Locked -> {
+                                val s = ((r.untilMs - System.currentTimeMillis() + 999) / 1000).toInt()
+                                recoverErr = ctx.getString(R.string.pin_locked_fmt, s)
+                            }
+                        }
+                    }
+                },
                 recoveryError = recoverErr,
-                onDeviceCred = {},
+                onDeviceCred = {
+                    activity?.let { a ->
+                        authVm.promptDeviceCredential(
+                            a,
+                            onOk = { recoverNewPin = true; recoverErr = null },
+                            onErr = { recoverErr = if (it.isNotBlank()) it else genericFail }
+                        )
+                    }
+                },
                 onFactoryReset = { authVm.factoryReset {} },
                 newPinContent = if (recoverNewPin) {
                     {

@@ -175,7 +175,77 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
         ctx.secureStore.edit {
             it.remove(K_PIN); it.remove(K_SALT); it.remove(K_FAILS); it.remove(K_LOCK_UNTIL)
             it.remove(K_PIN_MIN6); it.remove(K_PIN_CARD_DISMISSED)
+            it.remove(K_REC_HASH); it.remove(K_DEV_CRED)
+            it.remove(K_MIG_DISMISSED); it.remove(K_MIG_LATER)
+            it.remove(K_LAST_OK); it.remove(K_FAIL_TOTAL)
+            it.remove(stringPreferencesKey("recovery_salt"))
         }
+    }
+
+    // مفتاح الاسترداد (مراجعة أكتوبر 2026 — Commit 2): hash فقط، لا كلمات أبدًا.
+    // default آمن: null = غير مُعد — مستخدم التحديث يُعامل كذلك حتى يفتح الإعدادات.
+    private val K_REC_HASH = stringPreferencesKey("recovery_hash")
+    // إعادة تعيين PIN عبر قفل الجهاز — افتراضيًا OFF (مقايضة موثقة في AuthManager)
+    private val K_DEV_CRED = androidx.datastore.preferences.core.booleanPreferencesKey("device_cred_enabled")
+    // بطاقة ترحيل المستخدمين الحاليين — مرة واحدة + «لاحقًا» أسبوعيًا
+    private val K_MIG_DISMISSED = androidx.datastore.preferences.core.booleanPreferencesKey("migration_dismissed")
+    private val K_MIG_LATER = androidx.datastore.preferences.core.longPreferencesKey("migration_later_ms")
+    // سجل الأمان (Commit 4): آخر فتح ناجح + إجمالي الفاشلة — عدد وتوقيت فقط
+    private val K_LAST_OK = androidx.datastore.preferences.core.longPreferencesKey("sec_last_ok")
+    private val K_FAIL_TOTAL = androidx.datastore.preferences.core.intPreferencesKey("sec_fail_total")
+
+    suspend fun saveRecoveryHash(v: String) {
+        ctx.secureStore.edit { it[K_REC_HASH] = v }
+    }
+
+    suspend fun readRecoveryHash(): String? =
+        ctx.secureStore.data.map { it[K_REC_HASH] }.first()
+
+    suspend fun setDeviceCredEnabled(v: Boolean) {
+        ctx.secureStore.edit { it[K_DEV_CRED] = v }
+    }
+
+    suspend fun deviceCredEnabled(): Boolean =
+        ctx.secureStore.data.map { it[K_DEV_CRED] ?: false }.first()
+
+    suspend fun migrationDismissed(): Boolean =
+        ctx.secureStore.data.map { it[K_MIG_DISMISSED] ?: false }.first()
+
+    suspend fun dismissMigration() {
+        ctx.secureStore.edit { it[K_MIG_DISMISSED] = true }
+    }
+
+    suspend fun migrationLaterAt(): Long =
+        ctx.secureStore.data.map { it[K_MIG_LATER] ?: 0L }.first()
+
+    suspend fun snoozeMigration() {
+        ctx.secureStore.edit { it[K_MIG_LATER] = System.currentTimeMillis() + 7L * 24L * 3600L * 1000L }
+    }
+
+    suspend fun recordUnlockOk() {
+        ctx.secureStore.edit { it[K_LAST_OK] = System.currentTimeMillis() }
+    }
+
+    suspend fun recordFailTotal() {
+        val cur = readSecure()?.get(K_FAIL_TOTAL) ?: 0
+        ctx.secureStore.edit { it[K_FAIL_TOTAL] = cur + 1 }
+    }
+
+    suspend fun lastUnlockOk(): Long =
+        ctx.secureStore.data.map { it[K_LAST_OK] ?: 0L }.first()
+
+    suspend fun failTotal(): Int =
+        ctx.secureStore.data.map { it[K_FAIL_TOTAL] ?: 0 }.first()
+
+    // ملح مستقل لمفتاح الاسترداد — لا يُعاد استخدام ملح PIN
+    suspend fun getOrCreateRecSalt(): ByteArray = pinMutex.withLock {
+        val K_REC_SALT = stringPreferencesKey("recovery_salt")
+        (readSecure()?.get(K_REC_SALT) ?: readSecureBak()?.get(K_REC_SALT))?.let {
+            return@withLock Base64.decode(it, Base64.NO_WRAP)
+        }
+        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        ctx.secureStore.edit { it[K_REC_SALT] = Base64.encodeToString(salt, Base64.NO_WRAP) }
+        salt
     }
 
     // إسقاط تحذير الروت نهائيًا — خيار صريح من المستخدم

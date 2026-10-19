@@ -161,9 +161,10 @@ fun App(
                 !permsReviewed -> PermissionsReviewScreen(onDone = {
                     scope.launch { settings.setPermsReviewed() }
                 })
-                pinHash == null -> SetPinScreen(onDone = { pin ->
-                    authVm.setupPin(pin) {}
-                })
+                pinHash == null -> SetPinScreen(
+                    onDone = { pin -> authVm.setupPin(pin) {} },
+                    authVm = authVm
+                )
                 else -> AuthedApp(vm, settings, authVm, premiumVm, accountVm, newNoteSignal = newNoteSignal, openNoteId = openNoteId)
             }
         }
@@ -281,11 +282,13 @@ private fun AuthedApp(
             }
         }
         val rootNeverDismissed by authVm.rootWarnDismissed.collectAsStateWithLifecycle()
+        val hasRecKey by authVm.hasRecoveryKey.collectAsStateWithLifecycle()
+        val devCredOn by authVm.deviceCredEnabled.collectAsStateWithLifecycle()
         // محاولة بصمة تلقائية أول ظهور لشاشة القفل إن كانت مفعّلة ومتاحة
         LaunchedEffect(available) {
             if (available && !autoFired && activity != null) {
                 autoFired = true
-                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk() }, onErr = { if (it.isNotBlank()) bioError = it }, onLockout = { bioLockedOut = true })
+                authVm.promptBiometric(activity, onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk() }, onErr = { if (it.isNotBlank()) bioError = it }, onLockout = { bioLockedOut = true })
             }
         }
         // زر رجوع الهاتف على شاشة القفل: يخرج من التطبيق (السلوك الافتراضي) — لا BackHandler يعترضه
@@ -294,7 +297,7 @@ private fun AuthedApp(
             onBiometric = {
                 if (activity != null) {
                     authVm.promptBiometric(activity,
-                        onOk = { unlocked = true; authVm.biometricOk() },
+                        onOk = { unlocked = true; authVm.biometricOk(); authVm.recordUnlockOk() },
                         onErr = { if (it.isNotBlank()) bioError = it },
                         onLockout = { bioLockedOut = true })
                 }
@@ -303,7 +306,9 @@ private fun AuthedApp(
             rootNeverDismissed = rootNeverDismissed,
             onRootNeverShow = { authVm.dismissRootWarn() },
             authVm = authVm,
-            onRecovered = { unlocked = true },
+            hasRecoveryKey = hasRecKey,
+            deviceCredEnabled = devCredOn,
+            onRecovered = { unlocked = true; authVm.recordUnlockOk() },
             onPin = { pin ->
                 if (pin.isEmpty()) return@LockScreen
                 scope.launch {

@@ -18,7 +18,11 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,10 +32,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -133,6 +140,48 @@ fun SettingsScreen(
             LangOption("🇺🇦", "uk", stringResource(R.string.lang_uk), lang, { pendingLang = it })
         }
         SectionCard(stringResource(R.string.security_title)) {
+            // بطاقة ترحيل المستخدمين الحاليين (Commit 2): بلا مفتاح استرداد — تظهر حتى مع بصمة مفعّلة
+            val migVisible by authVm.migrationVisible.collectAsState()
+            val hasRec by authVm.hasRecoveryKey.collectAsState()
+            val devCred by authVm.deviceCredEnabled.collectAsState()
+            if (migVisible) {
+                var showMigSetup by remember { mutableStateOf(false) }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(
+                            stringResource(R.string.mig_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Text(
+                            stringResource(R.string.mig_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        if (!showMigSetup) {
+                            Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                TextButton(onClick = { showMigSetup = true; authVm.touch() }) {
+                                    Text(stringResource(R.string.mig_setup))
+                                }
+                                TextButton(onClick = { authVm.snoozeMigration() }) {
+                                    Text(stringResource(R.string.mig_later))
+                                }
+                            }
+                        } else {
+                            RecoveryKeySetup(
+                                authVm = authVm,
+                                onDone = { showMigSetup = false; authVm.touch() },
+                                onBack = { showMigSetup = false }
+                            )
+                        }
+                    }
+                }
+            }
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -168,6 +217,78 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
             AutoLockOptions(autoLockMs, onAutoLock)
+            // إدارة مفتاح الاسترداد (Commit 2): الحالة + إعداد/إعادة إنشاء + تحقق بالعبارة الكاملة
+            // انحراف موثق: التحقق بإدخال الـ 12 كلمة كاملة بدل عرض 3 كلمات — الكلمات لا تُخزَّن أبدًا فلا يمكن عرضها
+            var showRecSetup by remember { mutableStateOf(false) }
+            var showRecVerify by remember { mutableStateOf(false) }
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(if (hasRec) R.string.reckey_status_on else R.string.reckey_status_off),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { showRecSetup = true; authVm.touch() }) {
+                    Text(stringResource(if (hasRec) R.string.reckey_regen_btn else R.string.reckey_setup_btn))
+                }
+                if (hasRec) {
+                    TextButton(onClick = { showRecVerify = true; authVm.touch() }) {
+                        Text(stringResource(R.string.reckey_verify_btn))
+                    }
+                }
+            }
+            if (showRecSetup) {
+                RecoveryKeySetup(
+                    authVm = authVm,
+                    onDone = { showRecSetup = false; authVm.touch() },
+                    onBack = { showRecSetup = false }
+                )
+            }
+            if (showRecVerify) {
+                RecVerifyDialog(authVm = authVm, onDismiss = { showRecVerify = false })
+            }
+            // إعادة التعيين عبر قفل الجهاز (Commit 2): OFF افتراضيًا + حوار تحذير صريح عند التفعيل
+            var showDevWarn by remember { mutableStateOf(false) }
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.devcred_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.devcred_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = devCred,
+                    onCheckedChange = { v ->
+                        if (v) showDevWarn = true
+                        else { authVm.setDeviceCred(false); authVm.touch() }
+                    }
+                )
+            }
+            if (showDevWarn) {
+                AlertDialog(
+                    onDismissRequest = { showDevWarn = false },
+                    title = { Text(stringResource(R.string.devcred_warn_title)) },
+                    text = { Text(stringResource(R.string.devcred_warn_msg)) },
+                    confirmButton = {
+                        TextButton(onClick = { showDevWarn = false; authVm.setDeviceCred(true); authVm.touch() }) {
+                            Text(stringResource(R.string.devcred_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDevWarn = false }) { Text(stringResource(R.string.cancel)) }
+                    }
+                )
+            }
             // الإتلاف الآمن قبل الحذف: اختياري (معطّل افتراضيًا) + اختيار الطريقة عند التفعيل — Pro فقط
             Row(
                 Modifier.fillMaxWidth()
@@ -436,13 +557,14 @@ fun SettingsScreen(
                     )
                 }
             }
+            val resetScope = androidx.compose.runtime.rememberCoroutineScope()
             RecoverySheet(
                 visible = showReset,
                 onDismiss = { showReset = false; resetNewPin = false; resetErr = null },
                 canBio = authVm.canBiometric() && resetAct != null,
                 bioEnrolled = authVm.auth.isBioEnrolled(),
-                hasRecoveryKey = false,
-                deviceCredEnabled = false,
+                hasRecoveryKey = hasRec,
+                deviceCredEnabled = devCred,
                 onBio = {
                     resetAct?.let { a ->
                         authVm.promptBiometric(
@@ -452,9 +574,28 @@ fun SettingsScreen(
                         )
                     }
                 },
-                onRecoveryKey = {},
+                onRecoveryKey = { key ->
+                    resetScope.launch {
+                        when (val r = authVm.verifyRecoveryKey(key)) {
+                            is AuthViewModel.RecoveryResult.Success -> { resetNewPin = true; resetErr = null }
+                            is AuthViewModel.RecoveryResult.Wrong -> resetErr = resetCtx.getString(R.string.recover_generic_fail)
+                            is AuthViewModel.RecoveryResult.Locked -> {
+                                val s = ((r.untilMs - System.currentTimeMillis() + 999) / 1000).toInt()
+                                resetErr = resetCtx.getString(R.string.pin_locked_fmt, s)
+                            }
+                        }
+                    }
+                },
                 recoveryError = resetErr,
-                onDeviceCred = {},
+                onDeviceCred = {
+                    resetAct?.let { a ->
+                        authVm.promptDeviceCredential(
+                            a,
+                            onOk = { resetNewPin = true; resetErr = null },
+                            onErr = { resetErr = if (it.isNotBlank()) it else resetCtx.getString(R.string.recover_generic_fail) }
+                        )
+                    }
+                },
                 onFactoryReset = { authVm.factoryReset {} },
                 newPinContent = if (resetNewPin) {
                     {

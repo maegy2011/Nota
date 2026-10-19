@@ -33,7 +33,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -196,6 +198,8 @@ fun LockScreen(
         var showRecovery by remember { mutableStateOf(false) }
         var recoverNewPin by remember { mutableStateOf(false) }
         var recoverErr by remember { mutableStateOf<String?>(null) }
+        val recScope = rememberCoroutineScope()
+        val genericFail = stringResource(R.string.recover_generic_fail)
         TextButton(onClick = { showRecovery = true; recoverErr = null; recoverNewPin = false }) {
             Text(
                 stringResource(R.string.forgot_pin_link),
@@ -221,9 +225,28 @@ fun LockScreen(
                     )
                 }
             },
-            onRecoveryKey = { recoverErr = ctx.getString(R.string.recover_generic_fail) },
+            onRecoveryKey = { key ->
+                recScope.launch {
+                    when (val r = authVm.verifyRecoveryKey(key)) {
+                        is AuthViewModel.RecoveryResult.Success -> { recoverNewPin = true; recoverErr = null }
+                        is AuthViewModel.RecoveryResult.Wrong -> recoverErr = genericFail
+                        is AuthViewModel.RecoveryResult.Locked -> {
+                            val s = ((r.untilMs - System.currentTimeMillis() + 999) / 1000).toInt()
+                            recoverErr = ctx.getString(R.string.pin_locked_fmt, s)
+                        }
+                    }
+                }
+            },
             recoveryError = recoverErr,
-            onDeviceCred = {},
+            onDeviceCred = {
+                act?.let { a ->
+                    authVm.promptDeviceCredential(
+                        a,
+                        onOk = { recoverNewPin = true; recoverErr = null },
+                        onErr = { if (it.isNotBlank()) recoverErr = it else recoverErr = genericFail }
+                    )
+                }
+            },
             onFactoryReset = { authVm.factoryReset {} },
             newPinContent = if (recoverNewPin) {
                 {

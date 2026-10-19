@@ -28,6 +28,17 @@ class AuthViewModel @Inject constructor(
     val pinCardDismissed: StateFlow<Boolean> = _pinCardDismissed
     private val _rootWarnDismissed = MutableStateFlow(false)
     val rootWarnDismissed: StateFlow<Boolean> = _rootWarnDismissed
+    // مسارات الاسترداد (مراجعة أكتوبر 2026 — Commit 2): null = غير مُعد (ترحيل آمن)
+    private val _hasRecoveryKey = MutableStateFlow(false)
+    val hasRecoveryKey: StateFlow<Boolean> = _hasRecoveryKey
+    private val _deviceCredEnabled = MutableStateFlow(false)
+    val deviceCredEnabled: StateFlow<Boolean> = _deviceCredEnabled
+    private val _migrationVisible = MutableStateFlow(false)
+    val migrationVisible: StateFlow<Boolean> = _migrationVisible
+    private val _lastOk = MutableStateFlow(0L)
+    val lastUnlockOk: StateFlow<Long> = _lastOk
+    private val _failTotal = MutableStateFlow(0)
+    val failTotal: StateFlow<Int> = _failTotal
 
     init {
         viewModelScope.launch {
@@ -35,8 +46,78 @@ class AuthViewModel @Inject constructor(
             _pinMin6Ok.value = store.readPinMin6()
             _pinCardDismissed.value = store.pinCardDismissed()
             _rootWarnDismissed.value = store.rootWarnDismissed()
+            _hasRecoveryKey.value = store.readRecoveryHash() != null
+            _deviceCredEnabled.value = store.deviceCredEnabled()
+            _lastOk.value = store.lastUnlockOk()
+            _failTotal.value = store.failTotal()
+            refreshMigration()
             _loaded.value = true
         }
+    }
+
+    /** بطاقة الترحيل: بلا مفتاح استرداد + لم تُسقط + انقضى التأجيل (تظهر حتى مع بصمة — البصمة وحدها لا تكفي) */
+    suspend fun refreshMigration() {
+        val hasRec = store.readRecoveryHash() != null
+        _hasRecoveryKey.value = hasRec
+        _migrationVisible.value = !hasRec && !store.migrationDismissed() &&
+            System.currentTimeMillis() >= store.migrationLaterAt()
+    }
+
+    fun dismissMigration() = viewModelScope.launch {
+        store.dismissMigration()
+        _migrationVisible.value = false
+    }
+
+    fun snoozeMigration() = viewModelScope.launch {
+        store.snoozeMigration()
+        _migrationVisible.value = false
+    }
+
+    // حفظ hash مفتاح الاسترداد (لا كلمات أبدًا) — يُخفى البطاقة فور الإعداد
+    fun saveRecoveryKey(normalized: String, onDone: () -> Unit) = viewModelScope.launch {
+        val salt = store.getOrCreateRecSalt()
+        store.saveRecoveryHash(com.nota.notes.security.PinHash.hash(normalized, salt))
+        _hasRecoveryKey.value = true
+        _migrationVisible.value = false
+        onDone()
+    }
+
+    sealed interface RecoveryResult {
+        data object Success : RecoveryResult
+        data object Wrong : RecoveryResult
+        data class Locked(val untilMs: Long) : RecoveryResult
+    }
+
+    /** التحقق من مفتاح الاسترداد: الفشل بعد 12 كلمة كاملة يُحتسب في الدرع — رسالة عامة فقط */
+    suspend fun verifyRecoveryKey(input: String): RecoveryResult {
+        val now = System.currentTimeMillis()
+        val locked = store.pinLockUntil()
+        if (locked > now) return RecoveryResult.Locked(locked)
+        val norm = com.nota.notes.security.RecoveryKey.normalize(input)
+        if (com.nota.notes.security.RecoveryKey.wordCount(norm) != 12) return RecoveryResult.Wrong
+        val expected = store.readRecoveryHash() ?: return RecoveryResult.Wrong
+        return if (com.nota.notes.security.PinHash.verify(norm, expected)) {
+            RecoveryResult.Success
+        } else {
+            store.recordFailTotal()
+            val until = store.notePinFail(now)
+            if (until > now) RecoveryResult.Locked(until) else RecoveryResult.Wrong
+        }
+    }
+
+    fun setDeviceCred(v: Boolean) = viewModelScope.launch {
+        store.setDeviceCredEnabled(v)
+        _deviceCredEnabled.value = v
+    }
+
+    fun promptDeviceCredential(activity: FragmentActivity, onOk: () -> Unit, onErr: (String) -> Unit) {
+        auth.deviceCredential(activity, onOk, onErr)
+    }
+
+    /** فتح ناجح: توقيت + تصفير درع — يُنادى مع كل verify ناجح */
+    fun recordUnlockOk() = viewModelScope.launch {
+        store.recordUnlockOk()
+        _lastOk.value = System.currentTimeMillis()
     }
 
     fun dismissRootWarn() = viewModelScope.launch {
@@ -63,8 +144,12 @@ class AuthViewModel @Inject constructor(
         val expected = _pinHash.value ?: return PinResult.Wrong
         return if (auth.unlockWithPin(pin, expected)) {
             store.resetPinFails()
+            store.recordUnlockOk()
+            _lastOk.value = now
             PinResult.Success
         } else {
+            store.recordFailTotal()
+            _failTotal.value = _failTotal.value + 1
             val until = store.notePinFail(now)
             if (until > now) PinResult.Locked(until) else PinResult.Wrong
         }
