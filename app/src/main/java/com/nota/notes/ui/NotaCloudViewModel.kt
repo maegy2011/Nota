@@ -68,6 +68,7 @@ class NotaCloudViewModel @Inject constructor(
     // النسخ لسحابة نوتا: النص دائمًا + الوسائط (صور/صوت/رسوم/خلفيات) للمشتركين فقط —
     // الوسائط مشفرة بمفتاح المستخدم الخاص وحده (CloudKeyStore) — صفر معرفة.
     // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
+    // P0-2 (أكتوبر 2026): بلا مفتاح سحابة = رفض كامل قبل أي شبكة — لا نص عادي على السيرفر أبدًا.
     fun backupNow(allowMedia: Boolean = false) {
         if (_working.value) return
         viewModelScope.launch {
@@ -76,29 +77,34 @@ class NotaCloudViewModel @Inject constructor(
             _detail.value = null
             try {
                 val acct = accounts.currentAccountId() ?: throw IllegalStateException("no-account")
-                val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
-                // بلا مفتاح على هذا الجهاز (جديد/بعد حذف): النص فقط + تنبيه باستيراد عبارة الاسترداد
-                val key = if (allowMedia) withContext(Dispatchers.IO) { cloudKeys.getEntropy() } else null
-                if (allowMedia && key == null) {
-                    val skipped = notes.sumOf { it.attachments.size } + notes.count { it.background != null }
-                    if (skipped > 0) _detail.value = "media:$skipped:nokey:backup"
+                val key = withContext(Dispatchers.IO) { cloudKeys.getEntropy() }
+                if (key == null) {
+                    _message.value = "nc-err-nokey-upload"
+                    _detail.value = "nokey:upload-refused"
+                    return@launch
                 }
-                val withMedia = if (key != null) {
-                    withContext(Dispatchers.IO) { attachMediaShas(acct, notes, key) }
-                } else notes
-                val json = withContext(Dispatchers.IO) { BackupCodec.encode(withMedia) }
-                // المبدأ: النص أيضًا مشفر بمفتاح المستخدم — السيرفر لا يرى شيئًا إطلاقًا
-                var bytes = json.toByteArray(Charsets.UTF_8)
-                if (key != null) {
-                    try { bytes = withContext(Dispatchers.IO) { com.nota.notes.security.CloudMediaCrypto.encryptKey(key, bytes) } }
-                    finally { com.nota.notes.security.CloudMediaCrypto.wipe(key) }
+                try {
+                    val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
+                    val withMedia = if (allowMedia) {
+                        withContext(Dispatchers.IO) { attachMediaShas(acct, notes, key) }
+                    } else notes
+                    val json = withContext(Dispatchers.IO) { BackupCodec.encode(withMedia) }
+                    // المبدأ: النص أيضًا مشفر بمفتاح المستخدم — السيرفر لا يرى شيئًا إطلاقًا.
+                    // لا مسار عادي هنا — بلا مفتاح لا رفع أصلًا (البوابة أعلاه).
+                    val bytes = withContext(Dispatchers.IO) {
+                        com.nota.notes.security.CloudMediaCrypto.encryptKey(
+                            key, json.toByteArray(Charsets.UTF_8)
+                        )
+                    }
+                    val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+                    api.uploadBlob(acct, sha, bytes, "application/octet-stream")
+                    api.setPointer(acct, "backup_latest", sha)
+                    _message.value = "nc-ok-backup"
+                    runCatching { settings.setCloudLast(System.currentTimeMillis()) }
+                    refresh()
+                } finally {
+                    com.nota.notes.security.CloudMediaCrypto.wipe(key)
                 }
-                val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-                api.uploadBlob(acct, sha, bytes, "application/octet-stream")
-                api.setPointer(acct, "backup_latest", sha)
-                _message.value = "nc-ok-backup"
-                runCatching { settings.setCloudLast(System.currentTimeMillis()) }
-                refresh()
             } catch (e: CloudHttpException) {
                 _detail.value = "${e.javaClass.simpleName}:${e.code}"
                 _message.value = if (e.code == "QUOTA_EXCEEDED") "nc-err-quota" else "nc-err:${e.code}"
@@ -220,6 +226,8 @@ class NotaCloudViewModel @Inject constructor(
                 if (!settings.cloudAuto.first()) return@launch
                 if (System.currentTimeMillis() - settings.cloudLast.first() < 24L * 60 * 60 * 1000) return@launch
                 if (accounts.currentAccountId() == null) return@launch
+                // P0-2: بلا مفتاح = تخطٍّ صامت — backupNow سيرفض برسالة مرئية، والتلقائي لا يُزعج.
+                if (withContext(Dispatchers.IO) { cloudKeys.getEntropy() } == null) return@launch
                 backupNow(allowMedia)
             }
         }

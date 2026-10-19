@@ -16,7 +16,10 @@ object CloudMediaCrypto {
     private const val GCM_TAG_BITS = 128
     private val PREFIX = (HEADER + "\n").toByteArray()
 
-    fun encryptKey(key: ByteArray, plain: ByteArray): ByteArray {
+    // P0-2 (أكتوبر 2026): null = لا مفتاح — استثناء صريح بدل التشفير الصامت/المعطوب.
+    // لا بايت واحد يُنتَج بلا مفتاح صالح 256-بت.
+    fun encryptKey(key: ByteArray?, plain: ByteArray): ByteArray {
+        if (key == null) throw IllegalStateException("cloud_key_required")
         require(key.size == 32) { "bad key" }
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"))
@@ -27,7 +30,8 @@ object CloudMediaCrypto {
     }
 
     // null = مفتاح غلط أو ملف تالف — لا استثناء يكشف الفرق
-    fun decryptKey(key: ByteArray, blob: ByteArray): ByteArray? {
+    fun decryptKey(key: ByteArray?, blob: ByteArray): ByteArray? {
+        if (key == null) throw IllegalStateException("cloud_key_required")
         return try {
             if (key.size != 32 || !startsWith(blob, PREFIX)) return null
             val lines = String(blob).split("\n")

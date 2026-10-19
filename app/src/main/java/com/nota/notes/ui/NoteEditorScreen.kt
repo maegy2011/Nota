@@ -1347,6 +1347,7 @@ fun NoteEditorScreen(
                             val msg = when {
                                 errCode == "nokey" -> stringResource(R.string.ai_err_nokey)
                                 errCode == "empty" -> stringResource(R.string.ai_err_empty)
+                                errCode == "https-required" -> stringResource(R.string.ai_err_https)
                                 errCode == "net" -> stringResource(R.string.ai_err_net)
                                 errCode.startsWith("http:") -> stringResource(R.string.ai_err_http, errCode.removePrefix("http:"))
                                 else -> stringResource(R.string.ai_err_parse)

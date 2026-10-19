@@ -87,7 +87,8 @@ class SettingsViewModel @Inject constructor(private val store: SettingsStore) : 
     val aiEndpoint = store.aiEndpoint.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.nota.notes.data.AiRewriteService.DEFAULT_ENDPOINT)
     val aiModel = store.aiModel.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.nota.notes.data.AiRewriteService.DEFAULT_MODEL)
     val aiKeySet = store.aiKeySealed.map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    fun setAiEndpoint(v: String) = viewModelScope.launch { store.setAiEndpoint(v) }
+    // P0-1 (أكتوبر 2026): runCatching — require الـ https في المخزن يرمي، والانهيار هنا = تعليق الإعدادات.
+    fun setAiEndpoint(v: String) = viewModelScope.launch { runCatching { store.setAiEndpoint(v) } }
     fun setAiModel(v: String) = viewModelScope.launch { store.setAiModel(v) }
     fun setAiKey(plain: String) = viewModelScope.launch {
         val t = plain.trim()

@@ -213,7 +213,15 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     val aiEndpoint: Flow<String> = ctx.settingsStore.data.map { it[K_AI_ENDPOINT] ?: com.nota.notes.data.AiRewriteService.DEFAULT_ENDPOINT }
     val aiModel: Flow<String> = ctx.settingsStore.data.map { it[K_AI_MODEL] ?: com.nota.notes.data.AiRewriteService.DEFAULT_MODEL }
     val aiKeySealed: Flow<String?> = ctx.settingsStore.data.map { it[K_AI_KEY] }
-    suspend fun setAiEndpoint(v: String) { ctx.settingsStore.edit { it[K_AI_ENDPOINT] = v.trim().trimEnd('/') } }
+    // P0-1 (أكتوبر 2026): https فقط — أي http story يُرفض باستثناء قبل الحفظ.
+    // الروابط غير المشفرة تُعرّض مفتاح API ونصوص الملاحظات للاعتراض على الشبكة.
+    suspend fun setAiEndpoint(v: String) {
+        val e = v.trim().trimEnd('/')
+        require(e.startsWith("https://")) { "يجب أن يبدأ الرابط بـ https:// — الروابط غير المشفرة تُعرّض مفتاحك ونصوص ملاحظاتك للاعتراض." }
+        ctx.settingsStore.edit { it[K_AI_ENDPOINT] = e }
+    }
+    // P0-3 (أكتوبر 2026): مسح كل الإعدادات — إعادة ضبط المصنع الصادقة.
+    suspend fun clearAll() { ctx.settingsStore.edit { it.clear() } }
     suspend fun setAiModel(v: String) { ctx.settingsStore.edit { it[K_AI_MODEL] = v.trim() } }
     suspend fun setAiKeySealed(v: String?) { ctx.settingsStore.edit { if (v == null) it.remove(K_AI_KEY) else it[K_AI_KEY] = v } }
     // الترحيب والسرعة (27 سبتمبر 2026): الاسم للتحية + تفعيل الرسالة + الوضع السريع بعد القفل

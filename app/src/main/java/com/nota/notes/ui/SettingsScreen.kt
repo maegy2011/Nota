@@ -443,11 +443,25 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
+            // P0-1 (أكتوبر 2026): تحقق فوري — http:// مرفوض قبل الحفظ، ولا يُمرَّر للمخزن إلا https صالح.
+            var aiEpDraft by remember(aiEndpoint) { mutableStateOf(aiEndpoint) }
+            val aiEpValid = aiEpDraft.trim().trimEnd('/').startsWith("https://")
             OutlinedTextField(
-                value = aiEndpoint,
-                onValueChange = onAiEndpoint,
+                value = aiEpDraft,
+                onValueChange = {
+                    aiEpDraft = it
+                    if (it.trim().trimEnd('/').startsWith("https://")) onAiEndpoint(it)
+                },
                 label = { Text(stringResource(R.string.ai_endpoint)) },
                 singleLine = true,
+                isError = !aiEpValid,
+                supportingText = {
+                    if (!aiEpValid) Text(
+                        stringResource(R.string.ai_endpoint_https_err),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
             OutlinedTextField(

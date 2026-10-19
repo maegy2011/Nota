@@ -582,6 +582,8 @@
     <string name="ncloud_media_nokey_fmt">Text restored only — %1$d media file(s) need the cloud key (section below)</string>
     <string name="ncloud_media_nokey_backup_fmt">Text backed up only — %1$d media file(s) need the cloud key (create or import it in the section below)</string>
     <string name="ncloud_err_nokey">No cloud key on this device — import your recovery phrase from the cloud key section first</string>
+    <string name="ncloud_err_nokey_upload">No cloud key — upload refused for your protection: your notes will never reach the server unencrypted</string>
+    <string name="ncloud_nokey_guide">To enable cloud backup, create your cloud key first from the "cloud key" card below. This key encrypts your backups end-to-end — without it, upload stays refused and not a single byte leaves your device.</string>
     <string name="ncloud_err_decrypt">Cannot decrypt the backup — check the imported cloud key</string>
     <string name="ncloud_copy">Copy error details</string>
     <string name="acc_storage">Cloud storage</string>
@@ -767,7 +769,7 @@
     <string name="welcome_enter">Enter</string>
 <string name="welcome_hide">Don\'t show again</string>
     <string name="ai_title">AI Enhance</string>
-    <string name="ai_sub">Rewrite and format with your own key — stored encrypted on your device, sent only to your server</string>
+    <string name="ai_sub">Rewrite and format with your own key — stored encrypted on your device, sent only to your server (https:// only — http:// is rejected)</string>
     <string name="ai_endpoint">Server URL</string>
     <string name="ai_model">Model</string>
     <string name="ai_key">API key</string>
@@ -793,6 +795,8 @@
 <string name="ai_err_net">Couldn\'t reach the server — check connection and URL</string>
     <string name="ai_err_http">Server refused (code %1$s) — check key and model</string>
     <string name="ai_err_parse">Unclear server reply — try again</string>
+    <string name="ai_err_https">Server rejected — https:// only (http:// would expose your key and notes to interception)</string>
+    <string name="ai_endpoint_https_err">The URL must start with https:// — unencrypted links are rejected for your protection</string>
     <string name="splash_tagline">Your privacy first</string>
     <string name="location_remove">Remove location</string>
     <string name="link_dialog_title">Add link</string>
@@ -937,12 +941,12 @@
     <string name="recover_generic_fail">Couldn\'t verify — try again</string>
     <string name="recover_device">Reset via device lock</string>
     <string name="recover_wipe">Reset app (erase everything)</string>
-    <string name="recover_wipe_sub">If none of the options above work, this is the last resort. Everything will be lost.</string>
-    <string name="recover_wipe_confirm1">Everything will be erased permanently</string>
-    <string name="recover_wipe_confirm1_msg">All your notes, the encrypted database and the access key will be deleted. Nothing can be recovered afterwards.</string>
+    <string name="recover_wipe_sub">If none of the options above work, this is the last resort. Everything on this device will be erased permanently: notes, media, keys, settings, AI key, cloud key, and recovery key.</string>
+    <string name="recover_wipe_confirm1">Everything on this device will be erased permanently</string>
+    <string name="recover_wipe_confirm1_msg">This device will lose: all your notes and media, the encrypted database, every encryption key (database, media, cloud, Drive), all settings, the AI key, and the recovery key. Your Drive and cloud copies stay on your accounts — delete them manually if you want. Nothing on the device can be recovered afterwards.</string>
     <string name="recover_wipe_next">Continue</string>
     <string name="recover_wipe_confirm2">Final confirmation</string>
-    <string name="recover_wipe_confirm2_msg">Type "%1$s" to confirm — this step erases everything immediately.</string>
+    <string name="recover_wipe_confirm2_msg">Type "%1$s" to confirm — this step immediately erases: notes, media, keys and settings on this device only. Drive and cloud copies are untouched.</string>
     <string name="recover_wipe_word">erase</string>
     <string name="recover_wipe_confirm">Erase everything</string>
     <string name="recover_newpin_title">Set a new PIN</string>

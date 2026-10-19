@@ -486,6 +486,7 @@ private fun NotaCloudCard(
                     }
                     nm == "nc-err-quota" -> stringResource(R.string.ncloud_err_quota)
                     nm == "nc-err-nokey" -> stringResource(R.string.ncloud_err_nokey)
+                    nm == "nc-err-nokey-upload" -> stringResource(R.string.ncloud_err_nokey_upload)
                     nm == "nc-err-decrypt" -> stringResource(R.string.ncloud_err_decrypt)
                     nm == "nc-err-nobackup" -> stringResource(R.string.ncloud_err_nobackup)
                     nm == "nc-err:AUTH_EXPIRED" -> stringResource(R.string.ncloud_err_auth)
@@ -496,6 +497,15 @@ private fun NotaCloudCard(
                 else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            // P0-2 (أكتوبر 2026): بطاقة توجيه عند رفض الرفع بلا مفتاح — الزر في بطاقة المفتاح أدناه.
+            if (nm == "nc-err-nokey-upload") {
+                Text(
+                    stringResource(R.string.ncloud_nokey_guide),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
             val ndParts = ncDetail?.takeIf { it.startsWith("media:") }?.split(":")
             val ndMedia = ndParts?.getOrNull(1)?.toIntOrNull() ?: 0
             if (ndMedia > 0) {

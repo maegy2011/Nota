@@ -604,6 +604,8 @@
     <string name="ncloud_media_nokey_fmt">Text restored only — %1$d media file(s) need the cloud key (section below)</string>
     <string name="ncloud_media_nokey_backup_fmt">Text backed up only — %1$d media file(s) need the cloud key (create or import it in the section below)</string>
     <string name="ncloud_err_nokey">No cloud key on this device — import your recovery phrase from the cloud key section first</string>
+    <string name="ncloud_err_nokey_upload">لا يوجد مفتاح سحابة — رُفض الرفع لحمايتك: ملاحظاتك لن تصعد للسيرفر بلا تشفير أبدًا</string>
+    <string name="ncloud_nokey_guide">لتفعيل النسخ السحابي، أنشئ مفتاح السحابة أولًا من بطاقة «مفتاح السحابة» أدناه. هذا المفتاح يشفّر نسخك من طرف إلى طرف — بدونه يبقى الرفع مرفوضًا ولا يغادر جهازك أي بايت.</string>
     <string name="ncloud_err_decrypt">Cannot decrypt the backup — check the imported cloud key</string>
     <string name="ncloud_copy">Copy error details</string>
     <string name="acc_storage">Cloud storage</string>
@@ -788,7 +790,7 @@
     <string name="welcome_enter">دخول</string>
     <string name="welcome_hide">عدم الإظهار مجددًا</string>
     <string name="ai_title">تحسين بالذكاء الاصطناعي</string>
-    <string name="ai_sub">إعادة كتابة وتنسيق بمفتاحك الخاص — يُحفظ مشفرًا على جهازك ولا يُرسَل إلا لخادمك</string>
+    <string name="ai_sub">إعادة كتابة وتنسيق بمفتاحك الخاص — يُحفظ مشفرًا على جهازك ولا يُرسَل إلا لخادمك (https:// فقط — http:// مرفوض)</string>
     <string name="ai_endpoint">عنوان الخادم</string>
     <string name="ai_model">النموذج</string>
     <string name="ai_key">مفتاح API</string>
@@ -814,6 +816,8 @@
     <string name="ai_err_net">تعذّر الاتصال بالخادم — تحقق من الإنترنت والعنوان</string>
     <string name="ai_err_http">رفض الخادم الطلب (كود %1$s) — تحقق من المفتاح والنموذج</string>
     <string name="ai_err_parse">رد غير مفهوم من الخادم — حاول مجددًا</string>
+    <string name="ai_err_https">الخادم مرفوض — يُقبل https:// فقط (http:// يعرّض مفتاحك وملاحظاتك للاعتراض)</string>
+    <string name="ai_endpoint_https_err">يجب أن يبدأ الرابط بـ https:// — الروابط غير المشفرة مرفوضة لحمايتك</string>
     <string name="splash_tagline">Your privacy first</string>
     <string name="location_remove">إزالة الموقع</string>
     <string name="link_dialog_title">إضافة رابط</string>
@@ -958,12 +962,12 @@
     <string name="recover_generic_fail">تعذّر التحقق — حاول مجددًا</string>
     <string name="recover_device">إعادة تعيين عبر قفل الجهاز</string>
     <string name="recover_wipe">إعادة ضبط التطبيق (مسح كل شيء)</string>
-    <string name="recover_wipe_sub">إن لم تعمل أي من الخيارات أعلاه، هذا الخيار الأخير. سيُفقد كل شيء.</string>
-    <string name="recover_wipe_confirm1">سيُمسح كل شيء نهائيًا — لا رجعة</string>
-    <string name="recover_wipe_confirm1_msg">ستُحذف كل ملاحظاتك وقاعدة البيانات المشفرة ومفتاح الوصول. لن يمكن استرجاع أي شيء بعد التأكيد.</string>
+    <string name="recover_wipe_sub">إن لم تعمل أي من الخيارات أعلاه، هذا الخيار الأخير. سيُمسح كل شيء على هذا الجهاز نهائيًا: الملاحظات، الوسائط، المفاتيح، الإعدادات، مفتاح AI، مفتاح السحابة، ومفتاح الاسترداد.</string>
+    <string name="recover_wipe_confirm1">سيُمسح كل شيء على هذا الجهاز نهائيًا — لا رجعة</string>
+    <string name="recover_wipe_confirm1_msg">سيُحذف من هذا الجهاز: كل ملاحظاتك ووسائطك، قاعدة البيانات المشفرة، كل مفاتيح التشفير (القاعدة والوسائط والسحابة وDrive)، كل الإعدادات، مفتاح AI، ومفتاح الاسترداد. نسخ Drive والسحابة تبقى على حساباتك — احذفها يدويًا إن أردت. لن يمكن استرجاع أي شيء على الجهاز بعد التأكيد.</string>
     <string name="recover_wipe_next">متابعة</string>
     <string name="recover_wipe_confirm2">تأكيد أخير</string>
-    <string name="recover_wipe_confirm2_msg">اكتب "%1$s" للتأكيد — هذه الخطوة تمسح كل شيء فورًا.</string>
+    <string name="recover_wipe_confirm2_msg">اكتب "%1$s" للتأكيد — هذه الخطوة تمسح فورًا: الملاحظات والوسائط والمفاتيح والإعدادات على هذا الجهاز فقط. نسخ Drive والسحابة لا تُمس.</string>
     <string name="recover_wipe_word">امسح</string>
     <string name="recover_wipe_confirm">مسح كل شيء</string>
     <string name="recover_newpin_title">عيّن PIN جديدًا</string>

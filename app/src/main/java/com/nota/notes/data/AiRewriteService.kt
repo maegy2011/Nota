@@ -56,6 +56,10 @@ object AiRewriteService {
     ): Result<String> = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext Result.failure(Exception("nokey"))
         if (user.isBlank()) return@withContext Result.failure(Exception("empty"))
+        // P0-1 (أكتوبر 2026): دفاع عمقي — https فقط، حتى لو تجاوز المخزن.
+        // المفتاح والنص يُرسلان لهذا الخادم — http:// يعني اعتراضًا صريحًا.
+        if (!endpoint.trimStart().startsWith("https://"))
+            return@withContext Result.failure(Exception("https-required"))
         try {
             val url = URL(endpoint.trimEnd('/') + "/chat/completions")
             val conn = (url.openConnection() as HttpURLConnection).apply {

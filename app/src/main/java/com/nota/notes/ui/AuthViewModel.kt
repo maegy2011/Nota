@@ -3,7 +3,10 @@ package com.nota.notes.ui
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nota.notes.data.DbHolder
+import com.nota.notes.data.SettingsStore
 import com.nota.notes.security.AuthManager
+import com.nota.notes.security.CloudKeyStore
 import com.nota.notes.security.PassphraseStore
 import com.nota.notes.security.PinHash
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,7 +20,10 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     val auth: AuthManager,
-    private val store: PassphraseStore
+    private val store: PassphraseStore,
+    private val dbHolder: DbHolder,
+    private val settings: SettingsStore,
+    private val cloudKeys: CloudKeyStore
 ) : ViewModel() {
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded
@@ -220,15 +226,40 @@ class AuthViewModel @Inject constructor(
         onDone()
     }
 
-    // إعادة ضبط التطبيق من شاشة القفل (الخيار الأخير): مسح PIN والدرع + حذف قاعدة
-    // البيانات المشفرة — لا رجعة. يُنادى بعد التأكيد المزدوج في RecoverySheet.
+    // إعادة ضبط المصنع الصادقة P0-3 (أكتوبر 2026) — الخيار الكامل: reset يعني reset.
+    // يُمسح على هذا الجهاز: DB (بعد إغلاق الاتصال) + كل مفاتيح Keystore + كل مخازن
+    // الإعدادات/الأمان/السحابة + ملفات الوسائط + ملفات DB + لقطات الأمان.
+    // لا يُمس: نسخ Drive والسحابة (خارجية) — الحوار التحذيري يذكر ذلك صراحة.
     fun factoryReset(onDone: () -> Unit) = viewModelScope.launch {
-        store.clearAllLockData()
+        // 1) إغلاق DB أولًا — الحذف و الاتصال مفتوح يُفسد أو يفشل بصمت
+        runCatching { withContext(Dispatchers.IO) { dbHolder.close() } }
+        // 2) بيانات القفل + مفتاح قاعدة البيانات (من المخزنين)
+        runCatching { store.clearAllLockData() }
+        runCatching { store.clearDbPassphrase() }
+        // 3) كل مخازن DataStore: الإعدادات + السحابة (أساسي + احتياطي)
+        runCatching { settings.clearAll() }
+        runCatching { cloudKeys.clearAll() }
+        // 4) كل مفاتيح Keystore — الأسماء الحقيقية من KeyManager (nota_cloud في الخطة = nota_cloud_wrap هنا)
         runCatching {
-            val f = auth.appContext.getDatabasePath("nota.db")
-            if (f.exists()) f.delete()
-            auth.appContext.getDatabasePath("nota.db-shm").delete()
-            auth.appContext.getDatabasePath("nota.db-wal").delete()
+            withContext(Dispatchers.IO) {
+                val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                listOf(
+                    "nota_db_key", "nota_backup_key", "nota_media_key", "nota_cloud_wrap",
+                    "nota_token_vault", "nota_drive_pw", "nota_bio_challenge"
+                ).forEach { runCatching { ks.deleteEntry(it) } }
+            }
+        }
+        // 5) ملفات قاعدة البيانات + الوسائط المشفرة + لقطات الأمان + مؤقتات العارض
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val c = auth.appContext
+                listOf("nota.db", "nota.db-wal", "nota.db-shm", "nota.db-journal")
+                    .forEach { runCatching { c.getDatabasePath(it).delete() } }
+                listOf("note_media", "note_bg", "auto-backups").forEach { n ->
+                    runCatching { java.io.File(c.filesDir, n).deleteRecursively() }
+                }
+                runCatching { java.io.File(c.cacheDir, "shared_tmp").deleteRecursively() }
+            }
         }
         _pinHash.value = null
         _pinMin6Ok.value = null

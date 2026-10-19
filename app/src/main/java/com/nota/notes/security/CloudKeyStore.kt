@@ -61,6 +61,12 @@ class CloudKeyStore @Inject constructor(@ApplicationContext private val ctx: Con
         ctx.cloudStoreBak.edit { it[K_IV] = ivS; it[K_ENC] = encS }
     }
 
+    // P0-3 (أكتوبر 2026): مسح المفتاح من المخزنين — إعادة ضبط المصنع الصادقة.
+    suspend fun clearAll() {
+        ctx.cloudStore.edit { it.clear() }
+        ctx.cloudStoreBak.edit { it.clear() }
+    }
+
     // عبارة الاسترداد: Base64 مجمعة بمجموعات — تُعرض مرة واحدة وتُحفظ عند المستخدم
     fun exportPhrase(raw: ByteArray): String {
         val b64 = Base64.encodeToString(raw, Base64.NO_WRAP)

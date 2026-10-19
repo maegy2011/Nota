@@ -185,6 +185,12 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
         }
     }
 
+    // P0-3 (أكتوبر 2026): مسح مفتاح قاعدة البيانات من المخزنين — ملحق فقط، لا يمس منطق الفتح.
+    // بعدها getOrCreateDbPassphrase() تُولّد مفتاحًا جديدًا (أي أن القديم فُقد فعلًا).
+    suspend fun clearDbPassphrase() {
+        ctx.secureStore.edit { it.remove(K_IV); it.remove(K_ENC) }
+        ctx.secureStoreBak.edit { it.remove(K_IV); it.remove(K_ENC) }
+    }
     // مفتاح الاسترداد (مراجعة أكتوبر 2026 — Commit 2): hash فقط، لا كلمات أبدًا.
     // default آمن: null = غير مُعد — مستخدم التحديث يُعامل كذلك حتى يفتح الإعدادات.
     private val K_REC_HASH = stringPreferencesKey("recovery_hash")

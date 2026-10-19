@@ -72,6 +72,12 @@ class DbHolder @Inject constructor(
 
     suspend fun dao(): NoteDao = get().notes()
 
+    // P0-3 (أكتوبر 2026): إغلاق الاتصال قبل مسح الملفات — ملحق فقط، لا يمس منطق الفتح.
+    suspend fun close() = mutex.withLock {
+        runCatching { db?.close() }
+        db = null
+    }
+
     suspend fun folderDao(): FolderDao = get().folders()
 
     suspend fun tagDao(): TagDao = get().tags()
