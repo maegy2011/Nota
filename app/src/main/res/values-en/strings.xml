@@ -636,7 +636,7 @@
     <string name="cloud_drive_pw_wrong">Wrong password — this backup cannot be opened with it</string>
     <string name="cloud_pw_title">Drive password</string>
     <string name="cloud_pw_sub">Fixed for all Drive backups — stored encrypted on your device, uploads unreadable without it</string>
-    <string name="cloud_pw_hint">Password (4+ chars)</string>
+    <string name="cloud_pw_hint">Password (8+ chars)</string>
     <string name="cloud_pw_hint2">Confirm password</string>
     <string name="cloud_pw_save">Save password</string>
     <string name="cloud_pw_set">Password is set ✅ — you will be asked to confirm it every few days</string>

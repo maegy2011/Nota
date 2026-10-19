@@ -108,7 +108,7 @@
     <string name="backup_sub">パスワードで暗号化された .nota ファイル — ノートとアーカイブを含みます</string>
     <string name="bk_pw_hint">バックアップパスワード</string>
     <string name="bk_pw2_hint">パスワードの確認</string>
-    <string name="bk_pw_short">パスワードは少なくとも4文字必要</string>
+    <string name="bk_pw_short">パスワードは少なくとも8文字必要</string>
     <string name="bk_pw_mismatch">パスワードが一致しません</string>
     <string name="bk_exp_btn">バックアップを作成して共有</string>
     <string name="bk_exp_ok">バックアップが作成されました — 安全な場所に保存して共有してください</string>
@@ -605,7 +605,7 @@
     <string name="cloud_drive_pw_wrong">パスワードが間違っています — このバックアップはそれで復号できません</string>
     <string name="cloud_pw_title">ドライブパスワード</string>
     <string name="cloud_pw_sub">すべてのドライブバックアップに固定のパスワード — デバイス上で暗号化して保存 — アップロードされたバックアップはこのパスワードを知らなければ読めません</string>
-    <string name="cloud_pw_hint">パスワード（少なくとも4文字）</string>
+    <string name="cloud_pw_hint">パスワード（少なくとも8文字）</string>
     <string name="cloud_pw_hint2">パスワードの確認</string>
     <string name="cloud_pw_save">パスワードを保存</string>
     <string name="cloud_pw_set">パスワードが設定されました ✅ — 数日おきに確認を求めてあなたが覚えているかをチェック</string>

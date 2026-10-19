@@ -1801,7 +1801,7 @@
         <string name="cloud_pw_sub">ثابتة لكل نسخ Drive — تُحفظ مشفرة على جهازك، والنسخ المرفوعة لا تُقرأ بلا معرفتها</string>
         
     
-        <string name="cloud_pw_hint">كلمة المرور (4 أحرف على الأقل)</string>
+        <string name="cloud_pw_hint">كلمة المرور (8 أحرف على الأقل)</string>
         
     
         <string name="cloud_pw_hint2">تأكيد كلمة المرور</string>

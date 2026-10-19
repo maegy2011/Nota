@@ -100,7 +100,15 @@ class CloudBackupViewModel @Inject constructor(
     }
     val drivePwSet: StateFlow<Boolean> =
         settings.drivePwEnc.map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    // P1-B fix 2 (defense in depth): حد 8 + قوة في الـ backend أيضًا — الـ UI تمنع أولًا،
+    // وهنا يُرفض أي مسار يتجاوزها (الفشل رسالة لا حفظ صامت). الفك بلا حد عمدًا (توافق خلفي).
     fun setDrivePassword(pw: String) = viewModelScope.launch {
+        if (pw.length < com.nota.notes.data.BackupManager.MIN_PASSWORD_LEN ||
+            !com.nota.notes.data.BackupManager.isStrongPassword(pw)
+        ) {
+            _message.value = "err:drive-pw-weak"
+            return@launch
+        }
         runCatching {
             settings.setDrivePwEnc(lockPw(pw))
             settings.setDrivePwNext(nextConfirmAt())

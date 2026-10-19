@@ -605,7 +605,7 @@
     <string name="cloud_drive_pw_wrong">كلمة المرور غلط — هذه النسخة لا تُفك بها</string>
     <string name="cloud_pw_title">Mot de passe du lecteur</string>
     <string name="cloud_pw_sub">Corrigé pour toutes les copies de lecteur — chiffré sur votre appareil, les copies téléchargées ne sont pas lues à leur insu</string>
-    <string name="cloud_pw_hint">Mot de passe (au moins 4 caractères)</string>
+    <string name="cloud_pw_hint">Mot de passe (au moins 8 caractères)</string>
     <string name="cloud_pw_hint2">Confirmer le mot de passe</string>
     <string name="cloud_pw_save">Enregistrer le mot</string>
     <string name="cloud_pw_set">Le mot de passe est défini ✅ — demandez à le confirmer tous les quelques jours pour vous assurer de vous en souvenir</string>

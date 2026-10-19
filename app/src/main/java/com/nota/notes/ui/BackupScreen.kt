@@ -190,6 +190,7 @@ private fun DriveCard(
     locked: Boolean = false,
     onLocked: () -> Unit = {}
 ) {
+    val ctx = LocalContext.current
     val keep by vm.keepCount.collectAsStateWithLifecycle()
     val cloudPreview by vm.preview.collectAsStateWithLifecycle()
     val shrinkPct by vm.shrinkWarn.collectAsStateWithLifecycle()
@@ -220,6 +221,7 @@ private fun DriveCard(
                         )
                     }
                     m == "err:no-drive-pw" -> stringResource(R.string.cloud_no_drive_pw)
+                    m == "err:drive-pw-weak" -> stringResource(R.string.nota_password_weak)
                     m == "err:drive-pw-wrong" -> stringResource(R.string.cloud_drive_pw_wrong)
                     m == "err:verify-failed" -> stringResource(R.string.cloud_verify_failed)
                     m == "err:consent-denied" -> stringResource(R.string.cloud_consent_denied)
@@ -304,9 +306,43 @@ private fun DriveCard(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                 )
             }
+            // P1-B fix 2: حد أدنى 8 أحرف + فحص قوة (BackupManager.isStrongPassword — بلا تكرار) + نفس مؤشر القوة.
+            val driveStrong = newPw.length >= com.nota.notes.data.BackupManager.MIN_PASSWORD_LEN && com.nota.notes.data.BackupManager.isStrongPassword(newPw)
+            val driveErr = when {
+                newPw.isNotEmpty() && newPw.length < com.nota.notes.data.BackupManager.MIN_PASSWORD_LEN -> stringResource(R.string.nota_password_too_short)
+                newPw.length >= com.nota.notes.data.BackupManager.MIN_PASSWORD_LEN && !com.nota.notes.data.BackupManager.isStrongPassword(newPw) -> stringResource(R.string.nota_password_weak)
+                newPw2.isNotEmpty() && newPw != newPw2 -> stringResource(R.string.bk_pw_mismatch)
+                else -> null
+            }
+            if (driveErr != null) {
+                Text(
+                    driveErr,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            if (newPw.isNotEmpty()) {
+                PasswordStrengthIndicator(level = com.nota.notes.data.BackupPassword.strengthLevel(newPw))
+            }
+            Text(
+                stringResource(R.string.nota_password_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            OutlinedButton(
+                onClick = {
+                    val sug = com.nota.notes.data.BackupPassword.generateDicewarePassword()
+                    newPw = sug; newPw2 = sug
+                    copySensitive(ctx, sug)
+                },
+                enabled = !working && !locked,
+                modifier = Modifier.padding(top = 4.dp)
+            ) { Text(stringResource(R.string.nota_password_suggest)) }
             Button(
                 onClick = { vm.setDrivePassword(newPw); newPw = ""; newPw2 = "" },
-                enabled = !working && newPw.length >= 4 && newPw == newPw2 && !locked,
+                enabled = !working && newPw.length >= com.nota.notes.data.BackupManager.MIN_PASSWORD_LEN && driveStrong && newPw == newPw2 && !locked,
                 modifier = Modifier.padding(top = 8.dp)
             ) { Text(stringResource(R.string.cloud_pw_save)) }
         } else {

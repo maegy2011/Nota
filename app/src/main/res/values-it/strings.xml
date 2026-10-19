@@ -605,7 +605,7 @@
     <string name="cloud_drive_pw_wrong">La password non è corretta: questa versione non può essere sbloccata</string>
     <string name="cloud_pw_title">Guidare la password</string>
     <string name="cloud_pw_sub">Persistenti per tutte le copie di Drive: vengono salvate crittografate sul tuo dispositivo e le copie caricate non vengono lette a tua insaputa</string>
-    <string name="cloud_pw_hint">Password (almeno 4 caratteri)</string>
+    <string name="cloud_pw_hint">Password (almeno 8 caratteri)</string>
     <string name="cloud_pw_hint2">Conferma password</string>
     <string name="cloud_pw_save">Risparmia la parola</string>
     <string name="cloud_pw_set">La password è impostata ✅ — Chiedi conferma ogni pochi giorni per assicurarti di ricordarla</string>
