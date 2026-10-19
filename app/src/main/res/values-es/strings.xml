@@ -133,6 +133,7 @@
     <string name="bk_log_src_ncloud">Nube de Nota</string>
     <string name="bk_undo">Deshacer</string>
     <string name="bk_undone">Deshecha ✅</string>
+    <string name="cloud_pw_hint">Contraseña (al menos 8 caracteres)</string>
     <string name="bk_undo_fmt">Se movieron %1$d notas a la papelera — recuperables durante 30 días</string>
     <string name="bk_preview_stale">⚠️ Esta copia es más antigua que tus datos actuales — la fusión podría traer elementos eliminados</string>
     <string name="cloud_verify_failed">Falló la verificación de la subida — la copia sospechosa se eliminó de la nube, inténtalo de nuevo</string>
