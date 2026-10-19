@@ -18,8 +18,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // الترقيم الرسمي يبدأ من 1.0.0 — versionCode داخلي متسلسل حتى يقبل أندرويد التحديث فوق النسخ السابقة
-        versionCode = 48
-        versionName = "1.25.0"
+        versionCode = 49
+        versionName = "1.26.0"
     }
 
     signingConfigs {
