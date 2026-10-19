@@ -57,6 +57,21 @@ class NotesViewModel @Inject constructor(
 
     // P1-A: تُنادى بعد فتح القفل — تعيد تشغيل التدفقات ضد اتصال DB الجديد.
     fun onUnlocked() { _sessionTick.value = _sessionTick.value + 1 }
+
+    // P1-A fix 4 (أكتوبر 2026): debounce المحرر 300ms في App.kt (لا هنا) — والقفل يُخرج المحرر
+    // من التركيب فيلغي الـ autosave المعلق → آخر ≤300ms تضيع. الحل: خطاف تفريغ صريح يُستدعى
+    // قبل المسح/القفل. التسجيل من App.kt عبر SideEffect (يُحدَّث كل recomposition فيحمل أحدث حالة).
+    // النطاق عمدًا: saveNow واحد (كتابة Room واحدة ≈ عشرات ms < 200ms) — الوسوم/التذكير/السياج
+    // لحظية التغيير للملاحظات المحفوظة، والمعلقة للجديدة تُحفظ مع أول حفظ بعد الفتح (الحالة تبقى في rememberSaveable).
+    @Volatile private var pendingDraftSaver: (suspend () -> Unit)? = null
+    fun setPendingDraftSaver(saver: (suspend () -> Unit)?) { pendingDraftSaver = saver }
+    // ترجع true عند حفظ فعلي، false عند غياب مسودة متسخة أو فشل — لا ترمي أبدًا (القفل لا يتعطل).
+    suspend fun flushPendingSave(): Boolean = try {
+        val saver = pendingDraftSaver ?: return false
+        saver()
+        pendingDraftSaver = null
+        true
+    } catch (e: Exception) { false }
     // الوسوم: كل الأسماء لصف الفلترة + خريطة noteId ← أسماء لعرضها أسفل البطاقة
     val allTags: StateFlow<List<String>> =
         acctTick.flatMapLatest { repo.allTags() }.map { list -> list.map { it.name } }

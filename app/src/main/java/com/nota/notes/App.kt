@@ -238,11 +238,15 @@ private fun AuthedApp(
             override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
                 // إطفاء الشاشة = نسيان كل فتح خاص — المقفلة تتطلب تحديًا من جديد
                 foldersVm.relockAll()
-                // P1-A: مسح الذاكرة عند القفل — نصوص القوائم + إغلاق DB + الحافظة
-                vm.clearSensitiveData()
-                selfVm.clearSensitiveData()
-                authVm.lockAndWipe()
-                unlocked = false
+                // P1-A fix 4: تفريغ المسودة أولًا (متزامن — يكتمل قبل إغلاق DB) ثم المسح/القفل.
+                scope.launch {
+                    runCatching { vm.flushPendingSave() }
+                    // P1-A: مسح الذاكرة عند القفل — نصوص القوائم + إغلاق DB + الحافظة
+                    vm.clearSensitiveData()
+                    selfVm.clearSensitiveData()
+                    authVm.lockAndWipe()
+                    unlocked = false
+                }
             }
         }
         appCtx.registerReceiver(
@@ -265,11 +269,15 @@ private fun AuthedApp(
                 Lifecycle.Event.ON_RESUME -> {
                     // رسالة القفل التلقائي (Commit 3ز): إشعار لثانية عند العودة بعد انقضاء المهلة
                     if (unlocked && !authVm.auth.checkAutoLock()) {
-                        // P1-A: مسح الذاكرة عند القفل التلقائي — كمسار إطفاء الشاشة
-                        vm.clearSensitiveData()
-                        selfVm.clearSensitiveData()
-                        authVm.lockAndWipe()
-                        unlocked = false
+                        // P1-A fix 4: تفريغ المسودة أولًا (متزامن — يكتمل قبل إغلاق DB) ثم المسح/القفل.
+                        scope.launch {
+                            runCatching { vm.flushPendingSave() }
+                            // P1-A: مسح الذاكرة عند القفل التلقائي — كمسار إطفاء الشاشة
+                            vm.clearSensitiveData()
+                            selfVm.clearSensitiveData()
+                            authVm.lockAndWipe()
+                            unlocked = false
+                        }
                         runCatching {
                             val label = autolockLabel(appCtx, autoLock)
                             android.widget.Toast.makeText(
@@ -1129,6 +1137,30 @@ private fun AuthedApp(
                 appCtx.sendBroadcast(android.content.Intent(appCtx, com.nota.notes.widget.NotaWidgetProvider::class.java).setAction(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE).putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id)))
             }
         }
+    }
+
+    // P1-A fix 4: تسجيل حافظ المسودة — كل recomposition يُحدِّثه فيحمل أحدث حالة دائمًا.
+    // يُستدعى من مساري القفل (إطفاء الشاشة/تلقائي) قبل المسح — حفظ واحد متزامن بلا انتظار الـ debounce.
+    // النطاق: المحتوى فقط (saveNow) — الوسوم/التذكير/السياج تُستكمل بعد الفتح (الحالة تبقى في rememberSaveable).
+    androidx.compose.runtime.SideEffect {
+        val id = editing
+        vm.setPendingDraftSaver(
+            if (id != null && !readOnly && autosaveEnabled && (title.isNotBlank() || body.text.isNotBlank()) &&
+                (title != savedTitle || body.text != savedBody || editingColor != savedColor || editingBackground != savedBg ||
+                    editingLatitude != savedLat || editingLongitude != savedLng || editingCategory != savedCategory)
+            ) {
+                {
+                    val target = if (id == 0L) null else id
+                    val folder = if (id == 0L) defaultFolder?.id else null
+                    val newId = vm.saveNow(target, title, body.text, editingColor, folder, editingBackground, editingLatitude, editingLongitude, editingCategory)
+                    val now = System.currentTimeMillis()
+                    if (id == 0L && newId > 0) { editing = newId; editingCreated = now; editingUpdated = now }
+                    else editingUpdated = now
+                    markSaved(title, body.text, editingColor, editingBackground, editingLatitude, editingLongitude, editingCategory)
+                    authVm.touch()
+                }
+            } else null
+        )
     }
 
     // الحفظ التلقائي: بعد AUTOSAVE_DELAY_MS من آخر تغيير — الجديدة تُحفظ في المجلد الافتراضي صامتًا
