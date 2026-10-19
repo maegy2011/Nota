@@ -21,8 +21,7 @@ class AuthManager(private val ctx: Context) {
 
     /** يرجع true إذا ما زال مفتوحًا. مع NEVER (-1) لا يُقفل أبدًا بالمهلة. */
     fun checkAutoLock(): Boolean {
-        if (autoLockMs < 0) return _unlocked.value
-        if (_unlocked.value && System.currentTimeMillis() - lastActive > autoLockMs) {
+        if (isAutoLockExpired(lastActive, System.currentTimeMillis(), autoLockMs, _unlocked.value)) {
             _unlocked.value = false
         }
         return _unlocked.value
@@ -120,4 +119,11 @@ class AuthManager(private val ctx: Context) {
             } catch (e: Exception) { /* المسح أفضل جهد — لا يكسر شيئًا */ }
         }
     }
+}
+
+// P2-A: قرار القفل التلقائي كدالة نقية (نفس منطق checkAutoLock حرفيًا) —
+// تُختبر على JVM بلا Robolectric. checkAutoLock يفوّض إليها (لا ازدواج منطق).
+fun isAutoLockExpired(lastUnlock: Long, now: Long, autoLockMs: Long, unlocked: Boolean): Boolean {
+    if (autoLockMs < 0) return false
+    return unlocked && now - lastUnlock > autoLockMs
 }
