@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
@@ -80,8 +82,10 @@ fun RecoverySheet(
         scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        // مقياس خط 200% (Commit 5د): تمرير داخلي — بلا overflow على الشاشات الصغيرة
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (newPinContent != null) {

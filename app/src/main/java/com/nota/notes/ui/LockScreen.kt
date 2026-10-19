@@ -46,6 +46,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -82,6 +87,12 @@ fun LockScreen(
     successFlash: Boolean = false
 ) {
     var pin by remember { mutableStateOf("") }
+    // حالات الاسترداد مرفوعة للأعلى — معالج لوحة المفاتيح الفيزيائية يحتاجها (Commit 5أ)
+    var showRecovery by remember { mutableStateOf(false) }
+    var recoverNewPin by remember { mutableStateOf(false) }
+    var recoverErr by remember { mutableStateOf<String?>(null) }
+    val recScope = rememberCoroutineScope()
+    val genericFail = stringResource(R.string.recover_generic_fail)
     // قفل اتجاه الشاشة عموديًا طوال عرض القفل — يُستعاد السابق عند الخروج
     val ctx = LocalContext.current
     val activity = ctx as? android.app.Activity
@@ -111,8 +122,32 @@ fun LockScreen(
     val lockedRemain = ((lockUntilMs - nowMs) / 1000).toInt().coerceAtLeast(0)
     val isLocked = lockUntilMs > nowMs
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // لوحة مفاتيح فيزيائية (Commit 5أ): أرقام إدخال + مسح + Enter فتح + Escape استرداد — على الحاوية الجذرية
+        fun typeDigit(d: String): Boolean {
+            if (pin.length < 8 && pin.all(Char::isDigit)) { pin += d; return true }
+            return false
+        }
         Column(
-            Modifier.fillMaxSize().imePadding().padding(24.dp),
+            Modifier.fillMaxSize().imePadding().padding(24.dp)
+                .onKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    when (e.key) {
+                        Key.Zero, Key.NumPad0 -> typeDigit("0")
+                        Key.One, Key.NumPad1 -> typeDigit("1")
+                        Key.Two, Key.NumPad2 -> typeDigit("2")
+                        Key.Three, Key.NumPad3 -> typeDigit("3")
+                        Key.Four, Key.NumPad4 -> typeDigit("4")
+                        Key.Five, Key.NumPad5 -> typeDigit("5")
+                        Key.Six, Key.NumPad6 -> typeDigit("6")
+                        Key.Seven, Key.NumPad7 -> typeDigit("7")
+                        Key.Eight, Key.NumPad8 -> typeDigit("8")
+                        Key.Nine, Key.NumPad9 -> typeDigit("9")
+                        Key.Backspace -> if (pin.isNotEmpty()) { pin = pin.dropLast(1); true } else false
+                        Key.Enter, Key.NumPadEnter -> if (pin.isNotEmpty() && !isLocked) { onPin(pin); true } else false
+                        Key.Escape -> { showRecovery = true; recoverErr = null; recoverNewPin = false; true }
+                        else -> false
+                    }
+                },
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -284,11 +319,6 @@ fun LockScreen(
             )
         }
         // رابط «نسيت PIN؟» — ظاهر دائمًا حتى أثناء قفل الدرع (مراجعة أكتوبر 2026)
-        var showRecovery by remember { mutableStateOf(false) }
-        var recoverNewPin by remember { mutableStateOf(false) }
-        var recoverErr by remember { mutableStateOf<String?>(null) }
-        val recScope = rememberCoroutineScope()
-        val genericFail = stringResource(R.string.recover_generic_fail)
         TextButton(onClick = { showRecovery = true; recoverErr = null; recoverNewPin = false }) {
             Text(
                 stringResource(R.string.forgot_pin_link),
