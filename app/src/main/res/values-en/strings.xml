@@ -983,4 +983,9 @@
     <string name="devcred_warn_title">Security warning</string>
     <string name="devcred_warn_msg">This lets anyone who knows your device PIN reset the app PIN and read your notes. Don\'t enable this on a shared device.</string>
     <string name="devcred_confirm">I understand, enable</string>
+    <string name="lock_prelock_warn">One attempt left before temporary lock</string>
+    <string name="bio_open_wide">Unlock with biometrics</string>
+    <string name="bio_locked_hint">Biometrics briefly locked — use your PIN</string>
+    <string name="bio_notenrolled_hint">No biometrics enrolled — add one in system settings</string>
+    <string name="autolock_msg_fmt">Auto-locked after %1$s of inactivity</string>
 </resources>

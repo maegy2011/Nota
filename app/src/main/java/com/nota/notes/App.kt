@@ -80,6 +80,7 @@ import com.nota.notes.ui.TrashScreen
 import com.nota.notes.ui.NotesViewModel
 import com.nota.notes.ui.FoldersScreen
 import com.nota.notes.ui.FoldersViewModel
+import com.nota.notes.ui.Haptics
 import com.nota.notes.ui.OnboardingScreen
 import com.nota.notes.ui.PaywallScreen
 import com.nota.notes.billing.Entitlement
@@ -103,6 +104,16 @@ private enum class Screen { LIST, ARCHIVE, TRASH, FAVORITES, FOLDERS, CATEGORIES
 
 // مدة الحفظ التلقائي بالميللي ثانية (27 سبتمبر 2026): ثابت واحد يحكم الكود والنص معًا
 const val AUTOSAVE_DELAY_MS = 300L
+
+// تسمية مهلة القفل التلقائي للرسائل (Commit 3ز): تُطابق نصوص الإعدادات نفسها
+fun autolockLabel(ctx: android.content.Context, ms: Long): String = when (ms) {
+    15_000L -> ctx.getString(R.string.autolock_15s)
+    30_000L -> ctx.getString(R.string.autolock_30s)
+    60_000L -> ctx.getString(R.string.autolock_1m)
+    120_000L -> ctx.getString(R.string.autolock_2m)
+    300_000L -> ctx.getString(R.string.autolock_5m)
+    else -> ctx.getString(R.string.autolock_30s)
+}
 
 @Composable
 fun App(
@@ -148,8 +159,10 @@ fun App(
             LaunchedEffect(loaded, splashAnimDone) {
                 if (loaded && splashAnimDone) com.nota.notes.ui.SplashGate.keepOnScreen = false
             }
+            // دمج Splash مع القفل (Commit 3و): مقفل من جلسة سابقة → شاشة القفل مباشرة بلا انتقال مزدوج
+            val skipSplash = loaded && pinHash != null
             when {
-                !loaded || !splashAnimDone -> LuxurySplashScreen(
+                !loaded || (!splashAnimDone && !skipSplash) -> LuxurySplashScreen(
                     onAnimationDone = { splashAnimDone = true },
                     showLoading = showSplashSpinner && !loaded
                 )
@@ -195,6 +208,15 @@ private fun AuthedApp(
     var pinError by remember { mutableStateOf<String?>(null) }
     var bioError by remember { mutableStateOf<String?>(null) }
     var lockUntil by remember { mutableStateOf(0L) }
+    var prelock by remember { mutableStateOf(false) }
+    var successFlash by remember { mutableStateOf(false) }
+    // التنبيه الاستباقي يختفي بعد 3 ثوانٍ (Commit 3ج)
+    LaunchedEffect(prelock) {
+        if (prelock) {
+            kotlinx.coroutines.delay(3000)
+            prelock = false
+        }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val bioEnabled by settings.biometricEnabled.collectAsStateWithLifecycle()
@@ -233,7 +255,18 @@ private fun AuthedApp(
                     }
                 }
                 Lifecycle.Event.ON_RESUME -> {
-                    if (unlocked && !authVm.auth.checkAutoLock()) unlocked = false
+                    // رسالة القفل التلقائي (Commit 3ز): إشعار لثانية عند العودة بعد انقضاء المهلة
+                    if (unlocked && !authVm.auth.checkAutoLock()) {
+                        unlocked = false
+                        runCatching {
+                            val label = autolockLabel(appCtx, autoLock)
+                            android.widget.Toast.makeText(
+                                appCtx,
+                                appCtx.getString(R.string.autolock_msg_fmt, label),
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 }
                 else -> Unit
             }
@@ -309,17 +342,29 @@ private fun AuthedApp(
             hasRecoveryKey = hasRecKey,
             deviceCredEnabled = devCredOn,
             onRecovered = { unlocked = true; authVm.recordUnlockOk() },
+            bioEnrolled = authVm.auth.isBioEnrolled(),
+            prelockWarn = prelock,
+            successFlash = successFlash,
             onPin = { pin ->
                 if (pin.isEmpty()) return@LockScreen
                 scope.launch {
                     when (val r = authVm.verify(pin)) {
                         is com.nota.notes.ui.AuthViewModel.PinResult.Success -> {
-                            unlocked = true; pinError = null; lockUntil = 0L
+                            // تغذية راجعة للنجاح (Commit 3هـ): وميض 300ms + اهتزاز تأكيد قبل الانتقال — بلا صوت
+                            Haptics.confirm(appCtx)
+                            successFlash = true; pinError = null; prelock = false; lockUntil = 0L
+                            kotlinx.coroutines.delay(300)
+                            unlocked = true; successFlash = false
                             authVm.upgradePinIfLegacy(pin) // ترقية صامتة من SHA-256 إلى PBKDF2 بعد أول فتح ناجح
                         }
-                        is com.nota.notes.ui.AuthViewModel.PinResult.Wrong -> pinError = wrong
+                        is com.nota.notes.ui.AuthViewModel.PinResult.Wrong -> {
+                            // تغذية راجعة للفشل (Commit 3د): اهتزاز مميز + اهتزاز بصري في اللوحة
+                            Haptics.reject(appCtx)
+                            if (r.fails == 2) { prelock = true; pinError = null }
+                            else { prelock = false; pinError = wrong }
+                        }
                         is com.nota.notes.ui.AuthViewModel.PinResult.Locked -> {
-                            lockUntil = r.untilMs; pinError = null
+                            lockUntil = r.untilMs; pinError = null; prelock = false
                         }
                         // حدة الـ when: أي حالة مستقبلية تُعامل كرفض ظاهر — لا فتح صامت أبدًا
                         else -> pinError = wrong

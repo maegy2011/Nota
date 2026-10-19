@@ -1004,4 +1004,9 @@
     <string name="devcred_warn_title">تحذير أمني</string>
     <string name="devcred_warn_msg">هذا يسمح لأي شخص يعرف PIN جهازك بإعادة تعيين PIN التطبيق والوصول لملاحظاتك. لا تفعّل هذا إن كان جهازك مشتركًا.</string>
     <string name="devcred_confirm">أفهم، فعّل</string>
+    <string name="lock_prelock_warn">تبقّت محاولة واحدة قبل القفل المؤقت</string>
+    <string name="bio_open_wide">فتح بالبصمة</string>
+    <string name="bio_locked_hint">البصمة مقفلة مؤقتًا — استخدم PIN</string>
+    <string name="bio_notenrolled_hint">البصمة غير مسجّلة — أضفها من إعدادات النظام</string>
+    <string name="autolock_msg_fmt">قُفل تلقائيًا بعد %1$s من عدم النشاط</string>
 </resources>

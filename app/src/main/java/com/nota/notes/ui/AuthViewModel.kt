@@ -130,10 +130,10 @@ class AuthViewModel @Inject constructor(
         _pinCardDismissed.value = true
     }
 
-    // نتيجة التحقق: نجاح | غلط | مقفل مؤقتًا (ضد التخمين) — تُستهلك من كوروتين
+    // نتيجة التحقق: نجاح | غلط (+عدد الفشل للتنبيه الاستباقي) | مقفل مؤقتًا — تُستهلك من كوروتين
     sealed interface PinResult {
         data object Success : PinResult
-        data object Wrong : PinResult
+        data class Wrong(val fails: Int) : PinResult
         data class Locked(val untilMs: Long) : PinResult
     }
 
@@ -151,7 +151,7 @@ class AuthViewModel @Inject constructor(
             store.recordFailTotal()
             _failTotal.value = _failTotal.value + 1
             val until = store.notePinFail(now)
-            if (until > now) PinResult.Locked(until) else PinResult.Wrong
+            if (until > now) PinResult.Locked(until) else PinResult.Wrong(store.pinFailCount())
         }
     }
 

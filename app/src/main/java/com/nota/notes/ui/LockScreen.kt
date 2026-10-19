@@ -1,7 +1,9 @@
 package com.nota.notes.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +45,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -72,7 +75,11 @@ fun LockScreen(
     authVm: AuthViewModel,
     hasRecoveryKey: Boolean = false,
     deviceCredEnabled: Boolean = false,
-    onRecovered: () -> Unit = {}
+    onRecovered: () -> Unit = {},
+    // UX القفل (Commit 3): حالة التسجيل + تنبيه استباقي + وميض نجاح
+    bioEnrolled: Boolean = true,
+    prelockWarn: Boolean = false,
+    successFlash: Boolean = false
 ) {
     var pin by remember { mutableStateOf("") }
     // قفل اتجاه الشاشة عموديًا طوال عرض القفل — يُستعاد السابق عند الخروج
@@ -134,65 +141,147 @@ fun LockScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
         )
-        // حالة بصمة مقفلة مؤقتًا من النظام — PIN هو الطريق الوحيد الآن
-        if (bioLockedOut) {
-            Text(
-                stringResource(R.string.bio_locked_temp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    .semantics { liveRegion = LiveRegionMode.Assertive }
-            )
-        }
         Spacer(Modifier.height(24.dp))
-        // لوحة داخلية واحدة: البصمة داخلها + الإرسال يدوي بزر الفتح (منعًا للتخمين)
-        if (bioError != null) {
-            Text(
-                bioError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                    .semantics { liveRegion = LiveRegionMode.Assertive }
-            )
+        // اللوحة الداخلية: الإرسال يدوي بزر الفتح (منعًا للتخمين) — خلية البصمة
+        // نُقلت لزر عريض مستقل أدناه (Commit 3: أوضح + حالات متاح/معطل/مقفل)
+        val shakeX = remember { androidx.compose.animation.core.Animatable(0f) }
+        androidx.compose.runtime.LaunchedEffect(pinError) {
+            if (pinError != null) {
+                // وميض بصري للخطأ: اهتزاز أفقي قصير (Commit 3د) + اهتزاز لمسي مميز عند الضغط
+                repeat(2) {
+                    shakeX.animateTo(10f, animationSpec = androidx.compose.animation.core.tween(60))
+                    shakeX.animateTo(-10f, animationSpec = androidx.compose.animation.core.tween(60))
+                }
+                shakeX.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(60))
+            }
         }
         // الـ PIN أرقام LTR دائمًا حتى داخل واجهة RTL (داخل PinPad)
-        PinPad(
-            pin = pin,
-            onPin = { if (it.length <= 8 && it.all(Char::isDigit)) pin = it },
-            showBio = showBiometric && !bioLockedOut,
-            onBio = onBiometric
-        )
-        if (pinError != null) {
-            Text(
-                pinError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                    .semantics { liveRegion = LiveRegionMode.Assertive }
+        androidx.compose.foundation.layout.Box(
+            Modifier.graphicsLayer { translationX = shakeX.value }
+        ) {
+            PinPad(
+                pin = pin,
+                onPin = { if (it.length <= 8 && it.all(Char::isDigit)) pin = it },
+                showBio = false
             )
         }
-        if (isLocked) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        // منطقة حالة موحدة بين اللوحة والزر (Commit 3أ): رسالة واحدة بأولوية —
+        // درع > خطأ PIN > خطأ بصمة > تنبيه استباقي > تلميح 8 > فارغ — fade قصير 150ms
+        val statusKey = when {
+            isLocked -> "locked"
+            pinError != null -> "pin"
+            bioError != null -> "bio"
+            prelockWarn -> "pre"
+            pin.length >= 8 -> "hint"
+            else -> "empty"
+        }
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxWidth().heightIn(min = 30.dp).padding(top = 4.dp)
+                .semantics { liveRegion = LiveRegionMode.Assertive }
+        ) {
+            androidx.compose.animation.AnimatedContent(
+                targetState = statusKey,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(150)) togetherWith
+                        androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(150))
+                },
+                label = "lockStatus"
+            ) { key ->
+                when (key) {
+                    "locked" -> Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            stringResource(R.string.pin_locked_fmt, lockedRemain),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(10.dp)
+                        )
+                    }
+                    "pin" -> Text(
+                        pinError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    "bio" -> Text(
+                        bioError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    "pre" -> Text(
+                        stringResource(R.string.lock_prelock_warn),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    "hint" -> Text(
+                        stringResource(R.string.pin_hint_max8),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    else -> Spacer(Modifier.height(4.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = { onPin(pin) }, enabled = pin.isNotEmpty() && !isLocked, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.unlock_pin))
+        }
+        // زر البصمة العريض (Commit 3ب): بعرض Unlock تقريبًا، 56dp — بحالات متاح/معطل/مقفل مؤقتًا
+        if (showBiometric) {
+            val bioReady = !bioLockedOut && bioEnrolled
+            androidx.compose.material3.OutlinedButton(
+                onClick = onBiometric,
+                enabled = bioReady,
+                modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 8.dp)
             ) {
+                androidx.compose.foundation.layout.Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Filled.Fingerprint,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(stringResource(R.string.bio_open_wide))
+                }
+            }
+            if (bioLockedOut) {
                 Text(
-                    stringResource(R.string.pin_locked_fmt, lockedRemain),
+                    stringResource(R.string.bio_locked_hint),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(12.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                         .semantics { liveRegion = LiveRegionMode.Assertive }
+                )
+            } else if (!bioEnrolled) {
+                Text(
+                    stringResource(R.string.bio_notenrolled_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = { onPin(pin) }, enabled = pin.isNotEmpty() && !isLocked, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.unlock_pin))
+        // وميض النجاح (Commit 3هـ): طبقة خضراء خفيفة 300ms قبل الانتقال + اهتزاز تأكيد — بلا صوت
+        if (successFlash) {
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+            )
         }
         // رابط «نسيت PIN؟» — ظاهر دائمًا حتى أثناء قفل الدرع (مراجعة أكتوبر 2026)
         var showRecovery by remember { mutableStateOf(false) }

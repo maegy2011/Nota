@@ -149,6 +149,9 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
         until
     }
 
+    suspend fun pinFailCount(): Int =
+        ctx.secureStore.data.map { it[K_FAILS] ?: 0 }.first()
+
     suspend fun resetPinFails() = pinMutex.withLock {
         ctx.secureStore.edit { it[K_FAILS] = 0; it[K_LOCK_UNTIL] = 0L }
     }

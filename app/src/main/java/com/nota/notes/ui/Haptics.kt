@@ -64,4 +64,8 @@ object Haptics {
 
     // انتهاء السحب/الاستقرار: نبضة خفيفة واحدة
     fun release(ctx: Context) = pattern(ctx, longArrayOf(0, 18), intArrayOf(0, 110))
+
+    // رفض (مراجعة أكتوبر 2026 — Commit 3): نمط مميز للأخطاء — نبضة طويلة واحدة،
+    // مختلف عن نقرة الضغطة العادية (TextHandleMove في اللوحة)
+    fun reject(ctx: Context) = pattern(ctx, longArrayOf(0, 90), intArrayOf(0, 200))
 }
