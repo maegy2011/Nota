@@ -63,13 +63,17 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /** بطاقة الترحيل: بلا مفتاح استرداد + لم تُسقط + انقضى التأجيل (تظهر حتى مع بصمة — البصمة وحدها لا تكفي) */
+    /** بطاقة الترحيل (P3-A2): بلا مفتاح استرداد + لم تُسقط + انقضى التأجيل.
+     * شرط البصمة يُطبَّق في الواجهة (SettingsScreen): البصمة المفعّلة مسار
+     * استرداد قائم (P3-A1) فيُخفى البطاقة — هنا تُحفَظ الحالة الخام فقط. */
     suspend fun refreshMigration() {
         val hasRec = store.readRecoveryHash() != null
         _hasRecoveryKey.value = hasRec
         _migrationVisible.value = !hasRec && !store.migrationDismissed() &&
             System.currentTimeMillis() >= store.migrationLaterAt()
     }
+
+    fun refreshMigrationAsync() = viewModelScope.launch { refreshMigration() }
 
     fun dismissMigration() = viewModelScope.launch {
         store.dismissMigration()

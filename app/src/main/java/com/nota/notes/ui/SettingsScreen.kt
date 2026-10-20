@@ -177,9 +177,10 @@ fun SettingsScreen(
             LangOption("🇺🇦", "uk", stringResource(R.string.lang_uk), lang, { pendingLang = it })
         }
         SectionCard(stringResource(R.string.security_title)) {
-            // بطاقة ترحيل المستخدمين الحاليين (Commit 2): بلا مفتاح استرداد — تظهر حتى مع بصمة مفعّلة
+            // بطاقة ترحيل المستخدمين الحاليين (P3-A2): بلا مفتاح استرداد ولا بصمة —
+            // البصمة وحدها مسار استرداد (P3-A1) فلا حاجة للبطاقة حينها
             val migVisible by authVm.migrationVisible.collectAsState()
-            if (migVisible) {
+            if (migVisible && !(biometricEnabled && biometricAvailable)) {
                 var showMigSetup by remember { mutableStateOf(false) }
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
@@ -237,7 +238,7 @@ fun SettingsScreen(
                     enabled = biometricAvailable,
                     onCheckedChange = { v ->
                         if (!v && biometricEnabled) showDisableConfirm = true
-                        else onBiometric(v)
+                        else { onBiometric(v); authVm.refreshMigrationAsync() }
                     }
                 )
                 if (showDisableConfirm) {
@@ -246,7 +247,7 @@ fun SettingsScreen(
                         title = { Text(stringResource(R.string.sec_disable_title)) },
                         text = { Text(stringResource(R.string.sec_disable_msg)) },
                         confirmButton = {
-                            TextButton(onClick = { showDisableConfirm = false; onBiometric(false) }) {
+                            TextButton(onClick = { showDisableConfirm = false; onBiometric(false); authVm.refreshMigrationAsync() }) {
                                 Text(stringResource(R.string.sec_disable_confirm))
                             }
                         },
