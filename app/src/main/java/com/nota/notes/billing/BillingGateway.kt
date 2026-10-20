@@ -3,9 +3,6 @@ package com.nota.notes.billing
 // بوابة الفوترة — التطبيق يبني ضد هذه الواجهة فقط، لا ضد جوجل مباشرة.
 // النسخة الحقيقية (Play Billing) تُحقن في نكهة play لاحقًا، والوهمية في mock فقط.
 interface BillingGateway {
-    // رموز الشراء النشطة المعروفة لدى المتجر (قد تكون فارغة)
-    suspend fun queryPurchases(): List<String>
-
     // إطلاق تدفق الشراء لمنتج — تُرجع النتيجة بلا رمي استثناء
     suspend fun launchPurchase(productId: String): BillingResult
 

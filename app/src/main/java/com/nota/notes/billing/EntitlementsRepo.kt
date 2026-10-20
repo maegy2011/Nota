@@ -90,13 +90,4 @@ class EntitlementsRepo @Inject constructor(
         }
         fresh
     }
-
-    suspend fun hasFeature(name: String): Boolean = withContext(Dispatchers.IO) {
-        val current = try {
-            refresh()
-        } catch (e: Exception) {
-            cached.first()
-        }
-        hasFeature(current.features, name) || (current.pro && name == Entitlement.FEATURE_FOLDERS)
-    }
 }

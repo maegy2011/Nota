@@ -36,6 +36,3 @@ interface EntitlementsApi {
 
 // بوابة PRO: السيرفر يرد pro:true لأي حساب له صف استحقاق ساري (isProRow) — المدفوعة كلها تُفتح به
 fun isPro(e: Entitlement?): Boolean = e?.pro == true
-
-fun canUse(e: Entitlement?, name: String): Boolean =
-    e?.pro == true || hasFeature(e?.features ?: emptyList(), name)
