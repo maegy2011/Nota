@@ -38,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nota.notes.R
 import com.nota.notes.billing.BillingGateway
-import com.nota.notes.billing.isPro
 
 // شاشة الحساب المنفصلة: الهوية + الباقة الحالية والتجديد + الباقات والأسعار — بنمط DesignSystem
 // الدخول من القائمة الجانبية فقط (قرار 23 سبتمبر 2026) — بلا ارتباط بالإعدادات ولا أفاتار الرئيسية
@@ -71,7 +70,16 @@ fun AccountScreen(
             onDismiss = { confirmSignout = false }
         )
     }
-    val pro = isPro(entitlement)
+    // T4 (المرحلة 0أ-1): القرار المركزي من premiumVm.isPro() يشمل التجربة — بلا دالة حرة
+    // تُجمَع trialOn هنا ليعيد التركيب نفسه عند بدء/انتهاء التجربة
+    val trialOn by premiumVm.trialActive.collectAsStateWithLifecycle()
+    val pro = remember(trialOn, entitlement) { premiumVm.isPro() }
+    val trialOnly = trialOn && entitlement?.pro != true
+    val planLabel = stringResource(
+        if (trialOnly) R.string.acc_plan_pro_trial
+        else if (pro) R.string.acc_plan_pro
+        else R.string.acc_plan_free
+    )
     val ncQuota by ncvm.quota.collectAsStateWithLifecycle()
     // حالة التخزين: تُحدث مع تبدل الحساب — جزء من بيانات الاشتراك
     LaunchedEffect(id) {
@@ -99,7 +107,7 @@ fun AccountScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            if (pro) stringResource(R.string.acc_plan_pro) else stringResource(R.string.acc_plan_free),
+                            planLabel,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(top = 4.dp)
@@ -142,7 +150,7 @@ fun AccountScreen(
                 // الباقة الحالية: الاسم + الحالة + التجديد/الإلغاء — تُدار عبر Google Play
                 SectionCard(stringResource(R.string.acc_current)) {
                     Text(
-                        if (pro) stringResource(R.string.acc_plan_pro) else stringResource(R.string.acc_plan_free),
+                        planLabel,
                         style = MaterialTheme.typography.titleMedium
                     )
                     val exp = entitlement?.expiresAt

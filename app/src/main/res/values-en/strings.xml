@@ -725,6 +725,7 @@
     <string name="acc_signed_out">Not signed in</string>
     <string name="acc_plan_free">Free</string>
     <string name="acc_plan_pro">Pro</string>
+    <string name="acc_plan_pro_trial">Pro (trial)</string>
     <string name="acc_current">Your current plan</string>
     <string name="acc_forever">Free forever</string>
     <string name="acc_active">Active</string>
