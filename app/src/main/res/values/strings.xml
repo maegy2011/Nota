@@ -1041,6 +1041,9 @@
     <string name="sec_shots_allowed">مسموحة</string>
     <string name="sec_shots_blocked">ممنوعة</string>
     <string name="sec_go">انتقال ←</string>
+    <string name="sec_all_good">أمانك جيد — لا إجراءات مطلوبة</string>
+    <string name="sec_details">التفاصيل</string>
+    <string name="sec_hide">إخفاء</string>
     <string name="sec_enroll_warn">البصمة مفعّلة في التطبيق، لكن لا توجد بصمة مسجّلة على جهازك. افتح إعدادات النظام لإضافة بصمة، وإلا لن تعمل.</string>
     <string name="sec_disable_title">تعطيل البصمة؟</string>
     <string name="sec_disable_msg">تعطيل البصمة سيُزيل مسار الاسترداد. إن نسيت PIN لاحقًا، ستحتاج مفتاح الاسترداد أو إعادة ضبط التطبيق.</string>

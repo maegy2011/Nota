@@ -834,6 +834,28 @@ private fun SecStatusCard(
     failsTotal: Int
 ) {
     SectionCard(stringResource(R.string.sec_status_title), top = 0.dp) {
+        // P3-A3: قابلة للطي — كل المؤشرات ✓ = سطر واحد، وإلا التفاصيل كاملة
+        val allGood = isSecurityAllGood(unlockOk, recOn, devOn, shotsBlocked)
+        var expanded by remember { mutableStateOf(!allGood) }
+        if (!expanded) {
+            Row(
+                Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "✓",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    stringResource(R.string.sec_all_good),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { expanded = true }) { Text(stringResource(R.string.sec_details)) }
+            }
+        } else {
         SecRow(ok = unlockOk, label = stringResource(R.string.sec_row_unlock), value = unlockText, onGo = onUnlock)
         SecRow(
             ok = recOn,
@@ -842,7 +864,7 @@ private fun SecStatusCard(
             onGo = onRec
         )
         SecRow(
-            ok = true,
+            ok = !devOn,
             label = stringResource(R.string.sec_row_dev),
             value = stringResource(if (devOn) R.string.sec_dev_on else R.string.sec_dev_off),
             onGo = onDev
@@ -866,6 +888,10 @@ private fun SecStatusCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (allGood) {
+            TextButton(onClick = { expanded = false }) { Text(stringResource(R.string.sec_hide)) }
+        }
+        }
     }
 }
 
@@ -892,6 +918,12 @@ private fun SecRow(ok: Boolean, label: String, value: String, onGo: () -> Unit) 
         TextButton(onClick = onGo) { Text(stringResource(R.string.sec_go)) }
     }
 }
+
+// P3-A3: ملخص حالة الأمان كدالة نقية — "جيد" = فتح قوي + مفتاح مُعد +
+// إعادة-الجهاز معطّلة + لقطات محظورة. القفل التلقائي معلومة عرض فقط.
+// تُختبر على JVM (SecurityStatusTest) — الواجهة تعرض نتيجتها فقط.
+fun isSecurityAllGood(unlockOk: Boolean, recOn: Boolean, devOn: Boolean, shotsBlocked: Boolean): Boolean =
+    unlockOk && recOn && !devOn && shotsBlocked
 
 // تنسيق التاريخ للسجل — محلي بلا مكتبات جديدة
 private fun secFmtDate(ms: Long): String = runCatching {

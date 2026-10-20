@@ -1020,6 +1020,9 @@
     <string name="sec_shots_allowed">Allowed</string>
     <string name="sec_shots_blocked">Blocked</string>
     <string name="sec_go">Go ←</string>
+    <string name="sec_all_good">Your security looks good — no action needed</string>
+    <string name="sec_details">Details</string>
+    <string name="sec_hide">Hide</string>
     <string name="sec_enroll_warn">Biometrics are on in the app, but no biometrics are enrolled on your device. Add one in system settings, or it won\'t work.</string>
     <string name="sec_disable_title">Turn biometrics off?</string>
     <string name="sec_disable_msg">Turning biometrics off removes a recovery path. If you forget your PIN later, you\'ll need the recovery key or a full app reset.</string>
