@@ -104,7 +104,13 @@ fun SettingsScreen(
     onQuick: (Boolean) -> Unit = {},
     // التأثيرات والحركة (28 سبتمبر 2026): مفتاح واحد يحكم الاهتزاز اللمسي وأنيميشن القوائم
     effectsOn: Boolean = true,
-    onEffects: (Boolean) -> Unit = {}
+    onEffects: (Boolean) -> Unit = {},
+    // الخصوصية GDPR (P3-B): opt-in + حذف + تصدير — تُمرَّر من App.kt، افتراضيات آمنة للمعاينة
+    crashOpt: Boolean = false,
+    analyticsOpt: Boolean = false,
+    onCrashOpt: (Boolean) -> Unit = {},
+    onAnalyticsOpt: (Boolean) -> Unit = {},
+    exportRunner: com.nota.notes.data.GdprExportRunner? = null
 ) {
     // تأكيد قبل تغيير اللغة (بأمر محمد 27 سبتمبر 2026): يعيد تحميل الواجهة كلها
     var pendingLang by remember { mutableStateOf<String?>(null) }
@@ -643,6 +649,16 @@ fun SettingsScreen(
                 Switch(checked = cardDates, onCheckedChange = onCardDates)
             }
         }
+        // قسم الخصوصية GDPR (P3-B): تصدير ZIP + حذف الحساب بمهلة + opt-in — منفصل عن الأمان
+        PrivacySection(
+            authVm = authVm,
+            crashOpt = crashOpt,
+            analyticsOpt = analyticsOpt,
+            onCrashOpt = onCrashOpt,
+            onAnalyticsOpt = onAnalyticsOpt,
+            isPro = isPro,
+            exportRunner = exportRunner
+        )
         SectionCard(stringResource(R.string.changepin_title)) {
             ChangePinBlock(authVm)
             // إجراء «إعادة ضبط PIN» مستقل — نفس شيت الاسترداد (مراجعة أكتوبر 2026 — Commit 1)

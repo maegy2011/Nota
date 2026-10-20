@@ -14,7 +14,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 @HiltViewModel
@@ -58,6 +60,7 @@ class AuthViewModel @Inject constructor(
             _deviceCredEnabled.value = store.deviceCredEnabled()
             _lastOk.value = store.lastUnlockOk()
             _failTotal.value = store.failTotal()
+            _deletionAt.value = settings.deletionRequestedAt.first()
             refreshMigration()
             _loaded.value = true
         }
@@ -236,6 +239,50 @@ class AuthViewModel @Inject constructor(
         _pinMin6Ok.value = pin.length >= 6
         store.resetPinFails()
         onDone()
+    }
+
+    // P3-B2: حذف الحساب بفترة سماح 14 يومًا — منفصل تمامًا عن factoryReset.
+    // الطلب يُسجَّل بطابع الآن + يُجدوَل فحص WorkManager اليومي. الإلغاء يمسح الطلب ويُلغي الفحص.
+    // Firebase delete يحتاج جلسة وشبكة (جهاز) — الفشل يُرمى Boolean للواجهة مع رسالة واضحة.
+    private val _deletionAt = MutableStateFlow(0L)
+    val deletionAt: StateFlow<Long> = _deletionAt
+    fun loadDeletionState() = viewModelScope.launch {
+        _deletionAt.value = settings.deletionRequestedAt.first()
+    }
+    fun requestDeletion(onDone: () -> Unit) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        settings.requestDeletion(now)
+        _deletionAt.value = now
+        runCatching {
+            com.nota.notes.data.DeletionWorker.schedule(auth.appContext)
+        }
+        onDone()
+    }
+    fun cancelDeletion(onDone: () -> Unit) = viewModelScope.launch {
+        settings.clearDeletionRequest()
+        _deletionAt.value = 0L
+        runCatching {
+            com.nota.notes.data.DeletionWorker.cancel(auth.appContext)
+        }
+        onDone()
+    }
+    // حذف حساب Firebase — يُستدعى من الواجهة بعد التأكيد المزدوج. true = حُذف، false = فشل/لا جلسة.
+    suspend fun performFirebaseDelete(): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: return@runCatching false
+            user.delete().await() // نفس نمط GoogleAuthManager
+            true
+        }.getOrDefault(false)
+    }
+    // التنفيذ النهائي المحلي بعد انتهاء المهلة (أو فور التأكيد إن اختار المستخدم):
+    // مسح محلي شامل + وسم التنفيذ — السحابة server-side تبقى "تنتظر backend" (موثق في التقرير).
+    fun executeLocalWipe(onDone: () -> Unit) = viewModelScope.launch {
+        settings.markDeletionExecuted()
+        _deletionAt.value = 0L
+        runCatching {
+            com.nota.notes.data.DeletionWorker.cancel(auth.appContext)
+        }
+        factoryReset(onDone)
     }
 
     // إعادة ضبط المصنع الصادقة P0-3 (أكتوبر 2026) — الخيار الكامل: reset يعني reset.

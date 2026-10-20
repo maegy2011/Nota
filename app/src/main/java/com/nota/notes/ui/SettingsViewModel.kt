@@ -68,6 +68,11 @@ class SettingsViewModel @Inject constructor(private val store: SettingsStore) : 
     fun setFabVisible(v: Boolean) = viewModelScope.launch { store.setFabVisible(v) }
     fun setShredEnabled(v: Boolean) = viewModelScope.launch { store.setShredEnabled(v) }
     fun setShredMethod(v: String) = viewModelScope.launch { store.setShredMethod(v) }
+    // P3-B3: opt-in صريح — معطّل افتراضيًا
+    val crashOptIn = store.crashOptIn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val analyticsOptIn = store.analyticsOptIn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    fun setCrashOptIn(v: Boolean) = viewModelScope.launch { store.setCrashOptIn(v) }
+    fun setAnalyticsOptIn(v: Boolean) = viewModelScope.launch { store.setAnalyticsOptIn(v) }
     // ضمان التنبيه: عرض طلب استثناء البطارية مرة واحدة فقط
     val batteryPromptShown = store.batteryPromptShown.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     fun setBatteryPromptShown() = viewModelScope.launch { store.setBatteryPromptShown() }

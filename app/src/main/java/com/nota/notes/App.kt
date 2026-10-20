@@ -1732,6 +1732,10 @@ private fun SettingsRoute(settings: SettingsViewModel, authVm: AuthViewModel, on
     val welcomeOn by settings.welcomeEnabled.collectAsStateWithLifecycle()
     val quickOn by settings.quickMode.collectAsStateWithLifecycle()
     val effectsOn by settings.effectsOn.collectAsStateWithLifecycle()
+    // الخصوصية GDPR (P3-B): opt-in + عدّاء التصدير عبر جسر Hilt
+    val crashOpt by settings.crashOptIn.collectAsStateWithLifecycle()
+    val analyticsOpt by settings.analyticsOptIn.collectAsStateWithLifecycle()
+    val gdprVm: com.nota.notes.ui.GdprViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     // دقة التنبيهات: تُقرأ مع كل عرض + تُحدَّث بعد كل إصلاح (إعادة القراءة عند العودة من الإعداد)
     val routeCtx = LocalContext.current
     var healthTick by remember { mutableStateOf(0) }
@@ -1800,6 +1804,11 @@ private fun SettingsRoute(settings: SettingsViewModel, authVm: AuthViewModel, on
                 onWelcome = settings::setWelcomeEnabled,
                 onQuick = settings::setQuickMode,
                 effectsOn = effectsOn,
-                onEffects = settings::setEffects
+                onEffects = settings::setEffects,
+                crashOpt = crashOpt,
+                analyticsOpt = analyticsOpt,
+                onCrashOpt = settings::setCrashOptIn,
+                onAnalyticsOpt = settings::setAnalyticsOptIn,
+                exportRunner = gdprVm.runner
         )
 }

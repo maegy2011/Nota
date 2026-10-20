@@ -53,6 +53,12 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     private val K_AI_KEY = stringPreferencesKey("ai_key_sealed") // مفتاح API مشفر بـ TokenVault — لا يُخزن مكشوفًا أبدًا
     private val K_SHRED = booleanPreferencesKey("shred_enabled") // الإتلاف الآمن قبل الحذف — معطّل افتراضيًا (اختياري)
     private val K_SHRED_METHOD = stringPreferencesKey("shred_method") // طريقة الإتلاف single|dod|schneier
+    // P3-B2: طلب حذف الحساب — طابع طلب الحذف (0 = لا طلب) + علامة التنفيذ النهائي
+    private val K_DELETION_AT = longPreferencesKey("deletion_requested_at")
+    private val K_DELETION_DONE = booleanPreferencesKey("deletion_executed")
+    // P3-B3: opt-in صريح — معطّل افتراضيًا (لا جمع بلا موافقة)
+    private val K_CRASH_OPT = booleanPreferencesKey("crash_opt_in")
+    private val K_ANALYTICS_OPT = booleanPreferencesKey("analytics_opt_in")
 
     companion object {
         const val AUTO_LOCK_NEVER = -1L
@@ -205,6 +211,22 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     suspend fun setPermsReviewed() { ctx.settingsStore.edit { it[K_PERMS] = true } }
     suspend fun setScreenshotsAllowed(v: Boolean) { ctx.settingsStore.edit { it[K_SHOTS] = v } }
     suspend fun setShredEnabled(v: Boolean) { ctx.settingsStore.edit { it[K_SHRED] = v } }
+    // P3-B2: دورة حياة طلب الحذف — الطلب يُسجَّل بطابع الآن، والإلغاء يمسحه، والفحص الدوري يستهلكه.
+    val deletionRequestedAt: Flow<Long> = ctx.settingsStore.data.map { it[K_DELETION_AT] ?: 0L }
+    val deletionExecuted: Flow<Boolean> = ctx.settingsStore.data.map { it[K_DELETION_DONE] ?: false }
+    suspend fun requestDeletion(now: Long = System.currentTimeMillis()) { ctx.settingsStore.edit { it[K_DELETION_AT] = now } }
+    suspend fun clearDeletionRequest() { ctx.settingsStore.edit { it.remove(K_DELETION_AT) } }
+    suspend fun markDeletionExecuted() { ctx.settingsStore.edit { it[K_DELETION_DONE] = true; it.remove(K_DELETION_AT) } }
+    // P3-B3: opt-in صريح — الافتراضي معطّل دائمًا، والتفعيل اختيار المستخدم وحده.
+    val crashOptIn: Flow<Boolean> = ctx.settingsStore.data.map { it[K_CRASH_OPT] ?: false }
+    val analyticsOptIn: Flow<Boolean> = ctx.settingsStore.data.map { it[K_ANALYTICS_OPT] ?: false }
+    suspend fun setCrashOptIn(v: Boolean) { ctx.settingsStore.edit { it[K_CRASH_OPT] = v } }
+    suspend fun setAnalyticsOptIn(v: Boolean) { ctx.settingsStore.edit { it[K_ANALYTICS_OPT] = v } }
+    // P3-B1: تفريغ كل الإعدادات كخريطة نصية للتصدير — يُعقَّم عبر GdprExport.sanitizeSettings قبل الكتابة.
+    suspend fun dumpAll(): Map<String, String> {
+        val p = ctx.settingsStore.data.first()
+        return p.asMap().mapKeys { it.key.name }.mapValues { (_, v) -> v.toString() }
+    }
     suspend fun setShredMethod(v: String) { ctx.settingsStore.edit { it[K_SHRED_METHOD] = v } }
     suspend fun setAutosave(v: Boolean) { ctx.settingsStore.edit { it[K_AUTOSAVE] = v } }
     suspend fun setEffects(v: Boolean) { ctx.settingsStore.edit { it[K_FX] = v } }
