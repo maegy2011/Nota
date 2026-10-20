@@ -1082,4 +1082,37 @@
     <string name="privacy_analytics_title">Analytics</string>
     <string name="privacy_analytics_sub">Off by default — enabling collects anonymous usage stats.</string>
     <string name="privacy_ai_note">AI data is sent to the endpoint you choose. We collect no data.</string>
+    <!-- P3-C1: 3-level settings hierarchy -->
+    <string name="set_search_hint">Search settings…</string>
+    <string name="set_search_noresults">No matches — try another word</string>
+    <string name="set_back">Back to settings</string>
+    <string name="setcat_security">Security &amp; privacy</string>
+    <string name="setcat_security_sub">Lock, biometrics, recovery key, my data</string>
+    <string name="setcat_appearance">Appearance &amp; identity</string>
+    <string name="setcat_appearance_sub">Mode, themes, language, font</string>
+    <string name="setcat_experience">Experience</string>
+    <string name="setcat_experience_sub">Nav bar, welcome, editor, dates</string>
+    <string name="setcat_ai">Artificial intelligence</string>
+    <string name="setcat_ai_sub">Your model and key (BYOK)</string>
+    <string name="setcat_notif">Notifications</string>
+    <string name="setcat_notif_sub">Alert health and system settings</string>
+    <string name="setcat_advanced">Advanced</string>
+    <string name="setcat_advanced_sub">Access log and app info</string>
+    <string name="adv_access_log">Access log</string>
+    <string name="adv_version">App version</string>
+    <!-- P3-C2: backup restructuring -->
+    <string name="bk_sum_title">Backup status</string>
+    <string name="bk_sum_none">No backups yet — start your first one now</string>
+    <string name="bk_sum_fmt">Last backup: %1$s — %2$s</string>
+    <string name="bk_method_drive">Drive</string>
+    <string name="bk_method_ncloud">Nota cloud</string>
+    <string name="bk_method_file">.nota file</string>
+    <string name="bk_adv_show">Advanced settings</string>
+    <string name="bk_adv_hide">Hide advanced</string>
+    <string name="bk_links_log">Restore log</string>
+    <string name="bk_links_adv">Advanced settings</string>
+    <string name="bk_pro_title">See the plans</string>
+    <string name="bk_pro_msg">Cloud backup and advanced features are part of Nota Pro plans — your notes stay on your device.</string>
+    <string name="bk_exp_title">Export .nota file</string>
+    <string name="bk_res_title">Restore from .nota file</string>
 </resources>

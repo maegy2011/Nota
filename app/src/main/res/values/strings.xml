@@ -1077,4 +1077,37 @@
     <string name="privacy_analytics_title">التحليلات</string>
     <string name="privacy_analytics_sub">معطّلة افتراضيًا — تفعيلها يسمح بجمع إحصاءات استخدام مجهولة.</string>
     <string name="privacy_ai_note">بيانات AI تُرسل إلى endpoint الذي تحدده أنت. لا نجمع أي بيانات.</string>
+    <!-- P3-C1: هيكلة الإعدادات 3 مستويات -->
+    <string name="set_search_hint">ابحث في الإعدادات…</string>
+    <string name="set_search_noresults">لا نتائج مطابقة — جرّب كلمة أخرى</string>
+    <string name="set_back">رجوع للإعدادات</string>
+    <string name="setcat_security">الأمان والخصوصية</string>
+    <string name="setcat_security_sub">القفل والبصمة ومفتاح الاسترداد وبياناتي</string>
+    <string name="setcat_appearance">المظهر والهوية</string>
+    <string name="setcat_appearance_sub">الوضع والثيمات واللغة والخط</string>
+    <string name="setcat_experience">التجربة</string>
+    <string name="setcat_experience_sub">شريط التنقل والترحيب والمحرر والتواريخ</string>
+    <string name="setcat_ai">الذكاء الاصطناعي</string>
+    <string name="setcat_ai_sub">نموذجك ومفتاحك (BYOK)</string>
+    <string name="setcat_notif">الإشعارات</string>
+    <string name="setcat_notif_sub">صحة التنبيهات وإعدادات النظام</string>
+    <string name="setcat_advanced">المتقدمة</string>
+    <string name="setcat_advanced_sub">سجل الوصول ومعلومات التطبيق</string>
+    <string name="adv_access_log">سجل الوصول</string>
+    <string name="adv_version">إصدار التطبيق</string>
+    <!-- P3-C2: هيكلة النسخ الاحتياطي -->
+    <string name="bk_sum_title">حالة النسخ الاحتياطي</string>
+    <string name="bk_sum_none">لا نسخ بعد — ابدأ أول نسخة الآن</string>
+    <string name="bk_sum_fmt">آخر نسخة: %1$s — %2$s</string>
+    <string name="bk_method_drive">Drive</string>
+    <string name="bk_method_ncloud">سحابة نوتا</string>
+    <string name="bk_method_file">ملف .nota</string>
+    <string name="bk_adv_show">إعدادات متقدمة</string>
+    <string name="bk_adv_hide">إخفاء المتقدمة</string>
+    <string name="bk_links_log">سجل الاستعادة</string>
+    <string name="bk_links_adv">إعدادات متقدمة</string>
+    <string name="bk_pro_title">تعرّف على الباقات</string>
+    <string name="bk_pro_msg">النسخ السحابي والمزايا المتقدمة ضمن باقات نوتا برو — ملاحظاتك تبقى على جهازك كما هي.</string>
+    <string name="bk_exp_title">تصدير ملف .nota</string>
+    <string name="bk_res_title">استعادة من ملف .nota</string>
 </resources>

@@ -21,6 +21,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -123,45 +124,92 @@ fun SettingsScreen(
     }
     // خلفية الثيم صراحةً — خلفية النافذة ثابتة داكنة فلا تُترك شفافة
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        val secScope = rememberCoroutineScope()
         val scrollState = rememberScrollState()
         val hasRec by authVm.hasRecoveryKey.collectAsState()
         val devCred by authVm.deviceCredEnabled.collectAsState()
-        val bioReq = remember { BringIntoViewRequester() }
-        val recReq = remember { BringIntoViewRequester() }
-        val devReq = remember { BringIntoViewRequester() }
-        val lockReq = remember { BringIntoViewRequester() }
-        val shotsReq = remember { BringIntoViewRequester() }
-        fun go(req: BringIntoViewRequester) = secScope.launch { runCatching { req.bringIntoView() } }
+        // P3-C1: هيكلة 3 مستويات — الجذر: بطاقة الأمان + 6 أقسام؛ الضغطة تفتح مسار القسم
+        var route by remember { mutableStateOf(SettingsRoute.ROOT) }
+        var query by remember { mutableStateOf("") }
         Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
-        // بطاقة حالة الأمان (Commit 4): ملخص + روابط — بلا أزرار إجراء
-        val pinMin6 by authVm.pinMin6Ok.collectAsState()
-        val lastOk by authVm.lastUnlockOk.collectAsState()
-        val failsTotal by authVm.failTotal.collectAsState()
-        SecStatusCard(
-            unlockOk = biometricEnabled && biometricAvailable,
-            unlockText = stringResource(R.string.sec_unlock_pin_unknown),
-            recOn = hasRec,
-            devOn = devCred,
-            autoLockText = autolockLabel(LocalContext.current, autoLockMs),
-            shotsBlocked = !screenshotsAllowed,
-            onUnlock = { go(bioReq) },
-            onRec = { go(recReq) },
-            onDev = { go(devReq) },
-            onLock = { go(lockReq) },
-            onShots = { go(shotsReq) },
-            lastOkText = if (lastOk > 0) secFmtDate(lastOk) else stringResource(R.string.sec_never),
-            failsTotal = failsTotal
-        )
+        if (route != SettingsRoute.ROOT) {
+            TextButton(onClick = { route = SettingsRoute.ROOT; query = "" }, modifier = Modifier.padding(bottom = 4.dp)) {
+                Text(stringResource(R.string.set_back))
+            }
+        }
+        if (route == SettingsRoute.ROOT) {
+            // P3-C3: بحث في العناوين والأسماء فقط — بلا قيم حساسة (SettingsSearch.kt)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(stringResource(R.string.set_search_hint)) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+            val results = remember(query) { searchSettings(query) }
+            if (query.isNotBlank()) {
+                if (results.isEmpty()) {
+                    Text(
+                        stringResource(R.string.set_search_noresults),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else {
+                    results.forEach { e ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { route = e.route; query = "" }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                stringResource(e.titleRes),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            } else {
+            // بطاقة حالة الأمان: ملخص + روابط للأقسام (سجل الوصول انتقل للمتقدمة P3-C1)
+            SecStatusCard(
+                unlockOk = biometricEnabled && biometricAvailable,
+                unlockText = stringResource(R.string.sec_unlock_pin_unknown),
+                recOn = hasRec,
+                devOn = devCred,
+                autoLockText = autolockLabel(LocalContext.current, autoLockMs),
+                shotsBlocked = !screenshotsAllowed,
+                onUnlock = { route = SettingsRoute.SECURITY },
+                onRec = { route = SettingsRoute.SECURITY },
+                onDev = { route = SettingsRoute.SECURITY },
+                onLock = { route = SettingsRoute.SECURITY },
+                onShots = { route = SettingsRoute.SECURITY }
+            )
+            CategoryRow(stringResource(R.string.setcat_security), stringResource(R.string.setcat_security_sub)) { route = SettingsRoute.SECURITY }
+            CategoryRow(stringResource(R.string.setcat_appearance), stringResource(R.string.setcat_appearance_sub)) { route = SettingsRoute.APPEARANCE }
+            CategoryRow(stringResource(R.string.setcat_experience), stringResource(R.string.setcat_experience_sub)) { route = SettingsRoute.EXPERIENCE }
+            CategoryRow(stringResource(R.string.setcat_ai), stringResource(R.string.setcat_ai_sub)) { route = SettingsRoute.AI }
+            CategoryRow(stringResource(R.string.setcat_notif), stringResource(R.string.setcat_notif_sub)) { route = SettingsRoute.NOTIF }
+            CategoryRow(stringResource(R.string.setcat_advanced), stringResource(R.string.setcat_advanced_sub)) { route = SettingsRoute.ADVANCED }
+            }
+        }
+        if (route == SettingsRoute.ADVANCED) {
+            AdvancedSection(authVm)
+        }
+        if (route == SettingsRoute.APPEARANCE) {
         SectionCard(stringResource(R.string.theme_title), top = 0.dp) {
             ThemeOption("system", stringResource(R.string.theme_system), theme, onTheme)
             ThemeOption("light", stringResource(R.string.theme_light), theme, onTheme)
             ThemeOption("dark", stringResource(R.string.theme_dark), theme, onTheme)
+            }
         }
+        if (route == SettingsRoute.APPEARANCE) {
         SectionCard(stringResource(R.string.app_theme_title)) {
             AppThemeOptions(selected = appTheme, isPro = isPro, onPick = onAppTheme, onProLocked = onProLocked)
+            }
         }
         // اللغات السبع عشرة (27 سبتمبر 2026): علم يميز كل لغة — الاسم مترجم من ملف اللغة نفسها
+        if (route == SettingsRoute.APPEARANCE) {
         SectionCard(stringResource(R.string.lang_title)) {
             ThemeOption("system", stringResource(R.string.lang_system), lang, { pendingLang = it })
             LangOption("🇪🇬", "ar", stringResource(R.string.lang_ar), lang, { pendingLang = it })
@@ -181,7 +229,9 @@ fun SettingsScreen(
             LangOption("🇵🇱", "pl", stringResource(R.string.lang_pl), lang, { pendingLang = it })
             LangOption("🇵🇹", "pt", stringResource(R.string.lang_pt), lang, { pendingLang = it })
             LangOption("🇺🇦", "uk", stringResource(R.string.lang_uk), lang, { pendingLang = it })
+            }
         }
+        if (route == SettingsRoute.SECURITY) {
         SectionCard(stringResource(R.string.security_title)) {
             // بطاقة ترحيل المستخدمين الحاليين (P3-A2): بلا مفتاح استرداد ولا بصمة —
             // البصمة وحدها مسار استرداد (P3-A1) فلا حاجة للبطاقة حينها
@@ -225,7 +275,7 @@ fun SettingsScreen(
                 }
             }
             Row(
-                Modifier.fillMaxWidth().bringIntoViewRequester(bioReq).padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -303,7 +353,7 @@ fun SettingsScreen(
                 stringResource(R.string.autolock_applied),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.bringIntoViewRequester(lockReq).padding(top = 2.dp)
+                modifier = Modifier.padding(top = 2.dp)
             )
             // إدارة مفتاح الاسترداد (Commit 2): الحالة + إعداد/إعادة إنشاء + تحقق بالعبارة الكاملة
             // انحراف موثق: التحقق بإدخال الـ 12 كلمة كاملة بدل عرض 3 كلمات — الكلمات لا تُخزَّن أبدًا فلا يمكن عرضها
@@ -312,7 +362,7 @@ fun SettingsScreen(
             // بوابة إعادة الإنشاء (P3-A2): الإعداد الأول مباشرة، وإعادة الإنشاء بعد PIN/بصمة
             var showRecGate by remember { mutableStateOf(false) }
             Row(
-                Modifier.fillMaxWidth().bringIntoViewRequester(recReq).padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -355,7 +405,7 @@ fun SettingsScreen(
             // إعادة التعيين عبر قفل الجهاز (Commit 2): OFF افتراضيًا + حوار تحذير صريح عند التفعيل
             var showDevWarn by remember { mutableStateOf(false) }
             Row(
-                Modifier.fillMaxWidth().bringIntoViewRequester(devReq).padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -389,40 +439,20 @@ fun SettingsScreen(
                     }
                 )
             }
-            // الإتلاف الآمن قبل الحذف: اختياري (معطّل افتراضيًا) + اختيار الطريقة عند التفعيل — Pro فقط
-            Row(
-                Modifier.fillMaxWidth()
-                    .then(if (isPro) Modifier else Modifier.clickable { onProLocked() })
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // P3-C1: الفتح السريع هنا (تجاوز قفل) — نُقل من الترحيب
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.shred_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.quickmode_title), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        stringResource(R.string.shred_sub),
+                        stringResource(R.string.quickmode_sub),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (!isPro) {
-                    Icon(
-                        Icons.Filled.Lock,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                }
-                Switch(
-                    checked = shredEnabled && isPro,
-                    enabled = isPro,
-                    onCheckedChange = onShredEnabled
-                )
-            }
-            if (shredEnabled && isPro) {
-                ShredMethodOptions(shredMethod, onShredMethod)
+                Switch(checked = quickOn, onCheckedChange = onQuick)
             }
             Row(
-                Modifier.fillMaxWidth().bringIntoViewRequester(shotsReq).padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -436,8 +466,10 @@ fun SettingsScreen(
                 // صياغة الحظر (27 سبتمبر 2026): السويتش يعكس الحماية — شغّال = محظور (الافتراضي)، والتخزين screenshotsAllowed معكوسًا
                 Switch(checked = !screenshotsAllowed, onCheckedChange = { onScreenshots(!it) })
             }
+            }
         }
         // شريط التنقل السفلي — Pro: تخصيص الخانات + الترتيب + FAB (قرار 26 سبتمبر 2026)
+        if (route == SettingsRoute.EXPERIENCE) {
         SectionCard(stringResource(R.string.navbar_customize_row)) {
             Row(
                 Modifier.fillMaxWidth()
@@ -462,8 +494,10 @@ fun SettingsScreen(
                     )
                 }
             }
+            }
         }
         // الذكاء الاصطناعي (27 سبتمبر 2026): خادم OpenAI-compatible + مفتاح المستخدم — مجاني للجميع
+        if (route == SettingsRoute.AI) {
         SectionCard(stringResource(R.string.ai_title)) {
             Text(
                 stringResource(R.string.ai_sub),
@@ -556,8 +590,10 @@ fun SettingsScreen(
                     Text(stringResource(R.string.ai_key_save))
                 }
             }
+            }
         }
-        // الترحيب والوضع السريع (27 سبتمبر 2026): الاسم للتحية + تفعيل الرسالة + فتح سريع على ملاحظة جديدة
+        // الترحيب (27 سبتمبر 2026): الاسم للتحية + تفعيل الرسالة (الوضع السريع انتقل للأمان P3-C1)
+        if (route == SettingsRoute.EXPERIENCE) {
         SectionCard(stringResource(R.string.welcome_sec)) {
             var nameDraft by remember(username) { mutableStateOf(username) }
             OutlinedTextField(
@@ -578,19 +614,10 @@ fun SettingsScreen(
                 }
                 Switch(checked = welcomeOn, onCheckedChange = onWelcome)
             }
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.quickmode_title), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.quickmode_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = quickOn, onCheckedChange = onQuick)
             }
         }
         // المتقدمة المدمجة هنا (كانت شاشة منفصلة): لون افتراضي + خط + كتابة + PIN + صحة التنبيهات
+        if (route == SettingsRoute.APPEARANCE) {
         SectionCard(stringResource(R.string.defcolor_title)) {
             Text(
                 stringResource(R.string.defcolor_sub),
@@ -599,12 +626,16 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
             ColorPickerRow(selected = defaultColor, onPick = onDefaultColor)
+            }
         }
+        if (route == SettingsRoute.APPEARANCE) {
         SectionCard(stringResource(R.string.font_title)) {
             FontOption(SettingsStore.FONT_SMALL, stringResource(R.string.font_small), font, onFont)
             FontOption(SettingsStore.FONT_NORMAL, stringResource(R.string.font_normal), font, onFont)
             FontOption(SettingsStore.FONT_LARGE, stringResource(R.string.font_large), font, onFont)
+            }
         }
+        if (route == SettingsRoute.EXPERIENCE) {
         SectionCard(stringResource(R.string.write_title)) {
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -648,17 +679,10 @@ fun SettingsScreen(
                 }
                 Switch(checked = cardDates, onCheckedChange = onCardDates)
             }
+            }
         }
-        // قسم الخصوصية GDPR (P3-B): تصدير ZIP + حذف الحساب بمهلة + opt-in — منفصل عن الأمان
-        PrivacySection(
-            authVm = authVm,
-            crashOpt = crashOpt,
-            analyticsOpt = analyticsOpt,
-            onCrashOpt = onCrashOpt,
-            onAnalyticsOpt = onAnalyticsOpt,
-            isPro = isPro,
-            exportRunner = exportRunner
-        )
+        // P3-C1: تُعرض الخصوصية بعد PIN داخل مسار الأمان (نُقل الاستدعاء بعد بطاقة تغيير PIN)
+        if (route == SettingsRoute.SECURITY) {
         SectionCard(stringResource(R.string.changepin_title)) {
             ChangePinBlock(authVm)
             // إجراء «إعادة ضبط PIN» مستقل — نفس شيت الاسترداد (مراجعة أكتوبر 2026 — Commit 1)
@@ -736,7 +760,57 @@ fun SettingsScreen(
                 } else null
             )
         }
-        if (alarmHealth != null) {
+        }
+        // P3-C1: الخصوصية بعد PIN + الإتلاف بعدها — داخل مسار الأمان والخصوصية
+        if (route == SettingsRoute.SECURITY) {
+        PrivacySection(
+            authVm = authVm,
+            crashOpt = crashOpt,
+            analyticsOpt = analyticsOpt,
+            onCrashOpt = onCrashOpt,
+            onAnalyticsOpt = onAnalyticsOpt,
+            isPro = isPro,
+            exportRunner = exportRunner
+        )
+        }
+        if (route == SettingsRoute.SECURITY) {
+        // الإتلاف الآمن قبل الحذف: اختياري (معطّل افتراضيًا) + اختيار الطريقة عند التفعيل — Pro فقط
+        SectionCard(stringResource(R.string.shred_title)) {
+            Text(
+                stringResource(R.string.shred_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Row(
+                Modifier.fillMaxWidth()
+                    .then(if (isPro) Modifier else Modifier.clickable { onProLocked() })
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.shred_title), style = MaterialTheme.typography.bodyLarge)
+                }
+                if (!isPro) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
+                Switch(
+                    checked = shredEnabled && isPro,
+                    enabled = isPro,
+                    onCheckedChange = onShredEnabled
+                )
+            }
+            if (shredEnabled && isPro) {
+                ShredMethodOptions(shredMethod, onShredMethod)
+            }
+        }
+        }
+        if (route == SettingsRoute.NOTIF && alarmHealth != null) {
             SectionCard(stringResource(R.string.health_title)) {
                 Text(
                     stringResource(if (alarmHealth.ok()) R.string.health_ok_sub else R.string.health_bad_sub),
@@ -854,9 +928,7 @@ private fun SecStatusCard(
     onRec: () -> Unit,
     onDev: () -> Unit,
     onLock: () -> Unit,
-    onShots: () -> Unit,
-    lastOkText: String,
-    failsTotal: Int
+    onShots: () -> Unit
 ) {
     SectionCard(stringResource(R.string.sec_status_title), top = 0.dp) {
         // P3-A3: قابلة للطي — كل المؤشرات ✓ = سطر واحد، وإلا التفاصيل كاملة
@@ -901,18 +973,7 @@ private fun SecStatusCard(
             value = stringResource(if (shotsBlocked) R.string.sec_shots_blocked else R.string.sec_shots_allowed),
             onGo = onShots
         )
-        // سجل المحاولات (Commit 4هـ — اختياري ونُفّذ): عدد وتوقيت فقط — بلا تفاصيل محتوى
-        Text(
-            stringResource(R.string.sec_last_ok, lastOkText),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-        Text(
-            stringResource(R.string.sec_fails, failsTotal),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // P3-C1: سجل الوصول انتقل لقسم المتقدمة (AdvancedSection) — البطاقة ملخص فقط
         if (allGood) {
             TextButton(onClick = { expanded = false }) { Text(stringResource(R.string.sec_hide)) }
         }
@@ -955,3 +1016,55 @@ private fun secFmtDate(ms: Long): String = runCatching {
     java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault())
         .format(java.util.Date(ms))
 }.getOrDefault("—")
+
+// P3-C1: صف قسم في الجذر — عنوان + سطر توضيحي، كله نقّار
+@Composable
+private fun CategoryRow(title: String, sub: String, onGo: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onGo() }.padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// P3-C1: المتقدمة — سجل الوصول (نُقل من بطاقة الأمان) + إصدار التطبيق.
+// لا سجلات تشخيصية ولا وضع مطور بعد — موثق كعمل مستقبلي في تقرير P3-C.
+@Composable
+private fun AdvancedSection(authVm: AuthViewModel) {
+    val lastOk by authVm.lastUnlockOk.collectAsState()
+    val failsTotal by authVm.failTotal.collectAsState()
+    val ctx = LocalContext.current
+    val ver = remember {
+        runCatching {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+        }.getOrNull() ?: "—"
+    }
+    SectionCard(stringResource(R.string.adv_access_log), top = 0.dp) {
+        Text(
+            stringResource(R.string.sec_last_ok, if (lastOk > 0) secFmtDate(lastOk) else stringResource(R.string.sec_never)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            stringResource(R.string.sec_fails, failsTotal),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+    SectionCard(stringResource(R.string.adv_version)) {
+        Text(
+            ver,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
+    }
+}
