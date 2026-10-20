@@ -28,7 +28,8 @@ class BackupManagerTest {
         assertThat(BackupManager.decryptEnvelope(env, strong)).isEqualTo(sample)
     }
 
-    @Test fun `decrypt with wrong password throws`() {
+    // P3-0: كلمة خاطئة → IllegalStateException موحدة (لا AEADBadTagException خام).
+    @Test fun `decrypt with wrong password throws IllegalStateException (not AEADBadTagException)`() {
         val env = BackupManager.encryptEnvelope(sample, strong)
         var thrown: Exception? = null
         try {
@@ -36,10 +37,40 @@ class BackupManagerTest {
         } catch (e: Exception) {
             thrown = e
         }
-        // Detection (no fix in P2): GCM failure surfaces unwrapped as
-        // javax.crypto.AEADBadTagException (a GeneralSecurityException), NOT an
-        // IllegalStateException — callers must catch broad Exception. Reported in nota-p2-status.md.
-        assertThat(thrown).isNotNull()
+        assertThat(thrown).isInstanceOf(IllegalStateException::class.java)
+        assertThat(thrown).isNotInstanceOf(javax.crypto.AEADBadTagException::class.java)
+        assertThat(thrown?.cause).isInstanceOf(java.security.GeneralSecurityException::class.java)
+    }
+
+    // P3-0: عبث في النص المشفر → IllegalStateException موحدة.
+    @Test fun `decrypt with tampered ciphertext throws IllegalStateException`() {
+        val env = BackupManager.encryptEnvelope(sample, strong)
+        val lines = env.split("\n").toMutableList()
+        val enc = lines[5]
+        val c = enc[0]
+        lines[5] = (if (c != 'A') 'A' else 'B') + enc.substring(1)
+        var thrown: Exception? = null
+        try {
+            BackupManager.decryptEnvelope(lines.joinToString("\n"), strong)
+        } catch (e: Exception) {
+            thrown = e
+        }
+        assertThat(thrown).isInstanceOf(IllegalStateException::class.java)
+        assertThat(thrown).isNotInstanceOf(javax.crypto.AEADBadTagException::class.java)
+    }
+
+    // P3-0: نص مقتطع → IllegalStateException موحدة (لا تسريب Base64/IllegalArgumentException).
+    @Test fun `decrypt with truncated ciphertext throws IllegalStateException`() {
+        val env = BackupManager.encryptEnvelope(sample, strong)
+        val lines = env.split("\n").toMutableList()
+        lines[5] = lines[5].substring(0, lines[5].length / 2)
+        var thrown: Exception? = null
+        try {
+            BackupManager.decryptEnvelope(lines.joinToString("\n"), strong)
+        } catch (e: Exception) {
+            thrown = e
+        }
+        assertThat(thrown).isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test fun `decrypt with tampered ciphertext throws`() {

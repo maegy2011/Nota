@@ -129,13 +129,25 @@ object BackupManager {
 
     // فك الغلاف — يرمي عند كلمة غلط أو نص تالف (الـ GCM يكشف العبث)
     // P1-B: بلا فحص حد أدنى عمدًا — ملف قديم بكلمة 4 أحرف يجب أن يُستعاد (توافق خلفي).
+    // P3-0 (أكتوبر 2026): فشل GCM (كلمة خاطئة/ملف تالف) يُغلَّف في IllegalStateException
+    // برسالة موحدة — لا كشف: هل الكلمة خاطئة أم الملف تالف أم الـ tag مفقود.
+    // أخطاء الصيغة (bad format/iters/password فارغة) تبقى IllegalArgumentException — توافق خلفي.
     fun decryptEnvelope(text: String, password: String): String {
         require(password.isNotEmpty()) { "password required" }
         val lines = text.split("\n")
         if (lines.size != 6 || lines[0] != HEADER || lines[1] != KIND_PW) throw IllegalArgumentException("bad format")
         val iters = lines[2].toIntOrNull()?.coerceIn(100_000, 2_000_000)
             ?: throw IllegalArgumentException("bad iters")
-        return decrypt(deriveKey(password, Base64.decode(lines[3], Base64.NO_WRAP), iters), lines[4], lines[5])
+        try {
+            return decrypt(deriveKey(password, Base64.decode(lines[3], Base64.NO_WRAP), iters), lines[4], lines[5])
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: java.security.GeneralSecurityException) {
+            throw IllegalStateException("فشل فك التشفير — تحقق من كلمة المرور", e)
+        } catch (e: IllegalArgumentException) {
+            // Base64 مكسور داخل المقطع المشفر (اقتطاع/عبث) — يُعامل كفشل فك، لا كخطأ صيغة
+            throw IllegalStateException("فشل فك التشفير — تحقق من كلمة المرور", e)
+        }
     }
 
     // هل هذا النص غلاف مشفر أم JSON قديم مكشوف؟ — لمسار ترحيل نسخ Drive القديمة
