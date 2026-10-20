@@ -8,8 +8,12 @@ build/
 # Secrets — never commit
 google-services.json
 local.properties
+keystore.properties
+*.keystore
+*.jks
 keys/
 .env
+*.hprof
 
 # IDE
 .idea/
@@ -24,6 +28,7 @@ keys/
 backups/
 redesign/
 scripts/
+releases/
 PRODUCT_RULES.md
 DATA_SAFETY_AUDIT_REPORT.md
 docs/roadmap-premium.md
