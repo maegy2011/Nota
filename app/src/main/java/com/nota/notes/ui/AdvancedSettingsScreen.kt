@@ -209,7 +209,7 @@ fun ChangePinBlock(authVm: AuthViewModel) {
                         authVm.promptDeviceCredential(
                             a,
                             onOk = { recoverNewPin = true; recoverErr = null },
-                            onErr = { recoverErr = if (it.isNotBlank()) it else genericFail }
+                            onErr = { recoverErr = genericFail }
                         )
                     }
                 },

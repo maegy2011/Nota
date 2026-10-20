@@ -363,7 +363,7 @@ fun LockScreen(
                     authVm.promptDeviceCredential(
                         a,
                         onOk = { recoverNewPin = true; recoverErr = null },
-                        onErr = { if (it.isNotBlank()) recoverErr = it else recoverErr = genericFail }
+                        onErr = { recoverErr = genericFail }
                     )
                 }
             },

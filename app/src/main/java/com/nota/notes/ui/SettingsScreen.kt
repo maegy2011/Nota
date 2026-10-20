@@ -691,7 +691,7 @@ fun SettingsScreen(
                         authVm.promptDeviceCredential(
                             a,
                             onOk = { resetNewPin = true; resetErr = null },
-                            onErr = { resetErr = if (it.isNotBlank()) it else resetCtx.getString(R.string.recover_generic_fail) }
+                            onErr = { resetErr = resetCtx.getString(R.string.recover_generic_fail) }
                         )
                     }
                 },
