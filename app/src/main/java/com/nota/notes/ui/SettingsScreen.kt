@@ -647,8 +647,8 @@ fun SettingsScreen(
             RecoverySheet(
                 visible = showReset,
                 onDismiss = { showReset = false; resetNewPin = false; resetErr = null },
-                canBio = authVm.canBiometric() && resetAct != null,
-                bioEnrolled = authVm.auth.isBioEnrolled(),
+                canBio = resetAct != null,
+                bioEnrolled = authVm.canBiometric() && authVm.auth.isBioEnrolled(),
                 hasRecoveryKey = hasRec,
                 deviceCredEnabled = devCred,
                 onBio = {

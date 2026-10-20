@@ -60,9 +60,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
 
-// سلسلة fallback للاسترداد (موثقة بأمر مراجعة أكتوبر 2026):
-// PIN fails → biometric (if enrolled) → recovery key (if set)
-// → device credential (if enabled) → full app reset (last resort)
+// Fallback chain (implemented in phases):
+// PIN fails → biometric (P3-A1) → recovery key (P3-A2)
+//   → device credential (P3-A3) → full app reset (P0-3, always available)
 @Composable
 fun LockScreen(
     showBiometric: Boolean,
@@ -331,8 +331,8 @@ fun LockScreen(
         RecoverySheet(
             visible = showRecovery,
             onDismiss = { showRecovery = false; recoverNewPin = false; recoverErr = null },
-            canBio = showBiometric && act != null,
-            bioEnrolled = showBiometric,
+            canBio = act != null,
+            bioEnrolled = showBiometric && bioEnrolled,
             hasRecoveryKey = hasRecoveryKey,
             deviceCredEnabled = deviceCredEnabled,
             onBio = {

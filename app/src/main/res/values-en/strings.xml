@@ -959,6 +959,7 @@
     <string name="recover_wipe_word">erase</string>
     <string name="recover_wipe_confirm">Erase everything</string>
     <string name="recover_newpin_title">Set a new PIN</string>
+    <string name="recover_paste">Paste</string>
     <string name="reset_pin_title">Reset PIN</string>
     <string name="reset_pin_sub">If you forgot your current PIN, you can set a new one with biometrics or the recovery key.</string>
     <string name="forgot_current_pin">Forgot current PIN?</string>

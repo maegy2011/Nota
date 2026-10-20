@@ -120,7 +120,6 @@ fun ChangePinBlock(authVm: AuthViewModel) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val activity = ctx as? FragmentActivity
-    val bioAvailable = authVm.canBiometric() && activity != null
     // بطاقة توصية لمرة واحدة: PIN قصير (< 6) أو مجهول الطول (مستخدم قديم) ولم تُسقط بعد
     val pinMin6Ok by authVm.pinMin6Ok.collectAsState()
     val pinCardDismissed by authVm.pinCardDismissed.collectAsState()
@@ -179,8 +178,8 @@ fun ChangePinBlock(authVm: AuthViewModel) {
             RecoverySheet(
                 visible = showRecovery,
                 onDismiss = { showRecovery = false; recoverNewPin = false; recoverErr = null },
-                canBio = bioAvailable,
-                bioEnrolled = enrolled,
+                canBio = activity != null,
+                bioEnrolled = authVm.canBiometric() && enrolled,
                 hasRecoveryKey = hasRec,
                 deviceCredEnabled = devCred,
                 onBio = {

@@ -980,6 +980,7 @@
     <string name="recover_wipe_word">امسح</string>
     <string name="recover_wipe_confirm">مسح كل شيء</string>
     <string name="recover_newpin_title">عيّن PIN جديدًا</string>
+    <string name="recover_paste">لصق</string>
     <string name="reset_pin_title">إعادة ضبط PIN</string>
     <string name="reset_pin_sub">إذا نسيت PIN الحالي، يمكنك تعيين PIN جديد عبر البصمة أو مفتاح الاسترداد.</string>
     <string name="forgot_current_pin">نسيت PIN الحالي؟</string>

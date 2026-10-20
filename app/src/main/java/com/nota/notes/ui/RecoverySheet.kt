@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -74,6 +75,7 @@ fun RecoverySheet(
     if (!visible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val clipCtx = LocalContext.current
     var showKeyInput by remember { mutableStateOf(false) }
     var keyDraft by remember { mutableStateOf("") }
     var wipeStep by remember { mutableStateOf(0) } // 0 لا شيء، 1 حوار أول، 2 تأكيد كتابي
@@ -138,6 +140,15 @@ fun RecoverySheet(
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onRecoveryKey(keyDraft.trim()) }, enabled = keyDraft.isNotBlank(), modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.verify_btn))
+                        }
+                        TextButton(onClick = {
+                            runCatching {
+                                val cm = clipCtx.getSystemService(android.content.ClipboardManager::class.java)
+                                val t = cm?.primaryClip?.getItemAt(0)?.coerceToText(clipCtx)?.toString()
+                                if (!t.isNullOrBlank()) keyDraft = t
+                            }
+                        }) {
+                            Text(stringResource(R.string.recover_paste))
                         }
                         TextButton(onClick = { showKeyInput = false; keyDraft = "" }) {
                             Text(stringResource(R.string.cancel))
