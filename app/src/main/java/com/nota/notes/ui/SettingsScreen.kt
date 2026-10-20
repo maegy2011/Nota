@@ -829,13 +829,15 @@ fun SettingsScreen(
 
 @Composable
 private fun ShredMethodOptions(selected: String, onPick: (String) -> Unit) {
-    val labels = mapOf(
-        SettingsStore.SHRED_SINGLE to stringResource(R.string.shred_single),
-        SettingsStore.SHRED_DOD to stringResource(R.string.shred_dod),
-        SettingsStore.SHRED_SCHNEIER to stringResource(R.string.shred_schneier)
-    )
-    SettingsStore.SHRED_OPTIONS.forEach { v ->
-        ThemeOption(v, labels[v] ?: v, selected) { onPick(v) }
+    // P3-D3: طريقة واحدة — crypto-shred (حذف مفتاح الملف). التمريرات الفيزيائية أُزيلت (خرافة على الفلاش).
+    // تدفق SettingsStore يهاجر القيم القديمة تلقائيًا، فالمعروض دائمًا cryptoshred.
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(stringResource(R.string.shred_cryptoshred), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.shred_cryptoshred_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

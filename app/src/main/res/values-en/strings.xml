@@ -240,7 +240,9 @@
     <string name="autolock_never">Never</string>
     <string name="about_open">About Nota</string>
     <string name="shred_title">Secure shredding before delete</string>
-    <string name="shred_sub">Overwrites files with several passes before removal — slightly slower deletes</string>
+    <string name="shred_sub">Deletes each file\'s encryption key before removal — recovery becomes impossible, with no slower deletes</string>
+    <string name="shred_cryptoshred">Secure wipe (Crypto-shred)</string>
+    <string name="shred_cryptoshred_desc">Each file\'s encryption key is deleted first, so decrypting any remains becomes impossible — even if physical copies linger on flash</string>
     <string name="shred_single">Single Pass (1 pass)</string>
     <string name="shred_dod">DoD 5220.22-M (3 passes)</string>
     <string name="shred_schneier">Schneier 7-Pass (7 passes)</string>

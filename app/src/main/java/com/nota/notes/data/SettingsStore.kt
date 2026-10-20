@@ -52,7 +52,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     private val K_AI_MODEL = stringPreferencesKey("ai_model") // اسم النموذج على الخادم
     private val K_AI_KEY = stringPreferencesKey("ai_key_sealed") // مفتاح API مشفر بـ TokenVault — لا يُخزن مكشوفًا أبدًا
     private val K_SHRED = booleanPreferencesKey("shred_enabled") // الإتلاف الآمن قبل الحذف — معطّل افتراضيًا (اختياري)
-    private val K_SHRED_METHOD = stringPreferencesKey("shred_method") // طريقة الإتلاف single|dod|schneier
+    private val K_SHRED_METHOD = stringPreferencesKey("shred_method") // P3-D3: cryptoshred فقط — القيم القديمة تُهاجَر تلقائيًا
     // P3-B2: طلب حذف الحساب — طابع طلب الحذف (0 = لا طلب) + علامة التنفيذ النهائي
     private val K_DELETION_AT = longPreferencesKey("deletion_requested_at")
     private val K_DELETION_DONE = booleanPreferencesKey("deletion_executed")
@@ -80,10 +80,18 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
         const val MAX_CLOUD_KEEP = 7 // حد نسخ Drive الأقصى — يختار المستخدم 1..7
         const val DEFAULT_CLOUD_KEEP = 5
         // مستويات الإتلاف الآمن (الأفضل ممارسةً على التخزين الحديث — Gutmann35 مستبعد عمدًا: خرافة على الفلاش)
-        const val SHRED_SINGLE = "single"   // تمريرة عشوائية واحدة — كافية عمليًا (NIST 800-88 Clear)
-        const val SHRED_DOD = "dod"         // ثلاث تمريرات DoD 5220.22-M (00 ثم FF ثم عشوائي)
-        const val SHRED_SCHNEIER = "schneier" // سبع تمريرات Schneier (00 ثم FF ثم 5 عشوائية)
-        val SHRED_OPTIONS = listOf(SHRED_SINGLE, SHRED_DOD, SHRED_SCHNEIER)
+        // P3-D3: التمريرات الفيزيائية (single/dod/schneier) غير فعّالة على الفلاش (wear-leveling) —
+        // الملف نفسه كان يعترف ببقاء نسخ فيزيائية. الاستبدال: crypto-shred — حذف مفتاح الملف (P3-D1)
+        // فيجعل أي بقايا غير قابلة للفك. فوري بلا إبطاء. الثوابت القديمة محفوظة للتوافق فقط.
+        const val SHRED_SINGLE = "single"   // قديمة — تُهاجَر لـ cryptoshred (كانت: تمريرة عشوائية واحدة)
+        @Deprecated("P3-D3: غير فعّالة على الفلاش — تُهاجَر لـ crypto-shred")
+        const val SHRED_DOD = "dod"         // قديمة — ثلاث تمريرات DoD 5220.22-M
+        @Deprecated("P3-D3: غير فعّالة على الفلاش — تُهاجَر لـ crypto-shred")
+        const val SHRED_SCHNEIER = "schneier" // قديمة — سبع تمريرات Schneier
+        const val SHRED_CRYPTOSHRED = "cryptoshred" // المسح الآمن: حذف مفتاح الملف ثم الملف — البقايا غير قابلة للفك
+        val SHRED_OPTIONS = listOf(SHRED_CRYPTOSHRED)
+        // هجرة القيم القديمة (single/dod/schneier) وأي قيمة غير معروفة → cryptoshred
+        fun migrateShredMethod(v: String): String = if (v == SHRED_CRYPTOSHRED) v else SHRED_CRYPTOSHRED
         // شريط التنقل السفلي (قرار 26 سبتمبر 2026 — حُدّث 27 سبتمبر 2026): 5 خانات — المجاني ثابتة، والمدفوع يخصصها
         // رسائل النفس تحل محل زر الإضافة في الافتراضي — الإضافة الجديدة عبر زر FAB العائم
         // التجربة المجانية (27 سبتمبر 2026 — بأمر محمد): 7 أيام Pro + خصم 50% — تُعرض أول استخدام فقط
@@ -120,7 +128,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     val permsReviewed: Flow<Boolean> = ctx.settingsStore.data.map { it[K_PERMS] ?: false }
     val screenshotsAllowed: Flow<Boolean> = ctx.settingsStore.data.map { it[K_SHOTS] ?: false }
     val shredEnabled: Flow<Boolean> = ctx.settingsStore.data.map { it[K_SHRED] ?: false }
-    val shredMethod: Flow<String> = ctx.settingsStore.data.map { it[K_SHRED_METHOD] ?: SHRED_SINGLE }
+    val shredMethod: Flow<String> = ctx.settingsStore.data.map { migrateShredMethod(it[K_SHRED_METHOD] ?: SHRED_CRYPTOSHRED) }
     val autosave: Flow<Boolean> = ctx.settingsStore.data.map { it[K_AUTOSAVE] ?: true }
     // التأثيرات والحركة: يحكم الاهتزاز اللمسي وأنيميشن القوائم معًا — إطفاؤه = صمت وحركة فورية
     val effects: Flow<Boolean> = ctx.settingsStore.data.map { it[K_FX] ?: true }
@@ -227,7 +235,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
         val p = ctx.settingsStore.data.first()
         return p.asMap().mapKeys { it.key.name }.mapValues { (_, v) -> v.toString() }
     }
-    suspend fun setShredMethod(v: String) { ctx.settingsStore.edit { it[K_SHRED_METHOD] = v } }
+    suspend fun setShredMethod(v: String) { ctx.settingsStore.edit { it[K_SHRED_METHOD] = migrateShredMethod(v) } }
     suspend fun setAutosave(v: Boolean) { ctx.settingsStore.edit { it[K_AUTOSAVE] = v } }
     suspend fun setEffects(v: Boolean) { ctx.settingsStore.edit { it[K_FX] = v } }
     suspend fun setSheetRecent(v: List<String>) { ctx.settingsStore.edit { it[K_SHEET_RECENT] = v.take(6).joinToString(",") } }

@@ -73,9 +73,13 @@ object NoteBgFiles {
     }
 
     // إتلاف آمن لملف خلفية قبل حذفه — عند تفعيل الخيار من الإعدادات
+    // P3-D3: cryptoshred يحذف المفتاح الجانبي (.key) ثم الملف — البقايا غير قابلة للفك
     fun shred(ctx: Context, name: String?, method: String = SettingsStore.SHRED_SINGLE) {
         if (name.isNullOrBlank()) return
-        runCatching { SecureDelete.shred(file(ctx, name), method) }
+        runCatching {
+            if (method == SettingsStore.SHRED_CRYPTOSHRED) PerFileMedia.cryptoShred(file(ctx, name))
+            else SecureDelete.shred(file(ctx, name), method)
+        }
     }
 
     // تكرار ملف خلفية لملاحظة منسوخة — كل نسخة تملك ملفها **المشفر بمفتاح جديد (iv جديد)**

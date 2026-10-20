@@ -23,8 +23,23 @@ object SecureDelete {
         else -> listOf(null) // SHRED_SINGLE الافتراضي
     }
 
+    // P3-D3: crypto-shred — حذف مادة المفتاح أولًا (عبر wipeKey) ثم الملف بلا تمريرات.
+    // التمريرات الفيزيائية خرافة على الفلاش (wear-leveling) — السرية من حذف المفتاح لا من الكتابة فوق البايتات.
+    // الترتيب مقصود: المفتاح أولًا — حتى لو انقطع الحذف بعده، البقايا غير قابلة للفك.
+    fun cryptoShred(file: File, wipeKey: () -> Unit = {}): Boolean {
+        if (!file.exists()) {
+            runCatching { wipeKey() }
+            return true
+        }
+        runCatching { wipeKey() }
+        runCatching { file.delete() }
+        return !file.exists()
+    }
+
     // يُتلف محتوى الملف ثم يحذفه — يرجع true إذا اختفى الملف
+    // P3-D3: مسار legacy للتوافق (الاختبارات + القيم المخزنة) — الواجهة لم تعد تعرضه.
     fun shred(file: File, method: String = SettingsStore.SHRED_SINGLE): Boolean {
+        if (method == SettingsStore.SHRED_CRYPTOSHRED) return cryptoShred(file)
         if (!file.exists()) return true
         runCatching {
             val len = file.length()

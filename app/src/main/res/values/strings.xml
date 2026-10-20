@@ -240,7 +240,9 @@
     <string name="autolock_never">أبدًا</string>
     <string name="about_open">عن التطبيق…</string>
     <string name="shred_title">الإتلاف الآمن قبل الحذف</string>
-    <string name="shred_sub">يكتب فوق الملفات عدة مرات قبل إزالتها لاستحالة استرجاعها — الحذف أبطأ قليلًا</string>
+    <string name="shred_sub">يحذف مفتاح تشفير الملف قبل إزالته فيستحيل استرجاعه — فوري بلا إبطاء للحذف</string>
+    <string name="shred_cryptoshred">المسح الآمن (Crypto-shred)</string>
+    <string name="shred_cryptoshred_desc">مفتاح تشفير كل ملف يُحذف أولًا فيصبح فك ما تبقى منه مستحيلًا — حتى مع بقاء نسخ فيزيائية على الفلاش</string>
     <string name="shred_single">Single Pass (دورة واحدة)</string>
     <string name="shred_dod">DoD 5220.22-M (3 دورات)</string>
     <string name="shred_schneier">Schneier 7-Pass (7 دورات)</string>

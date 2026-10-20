@@ -24,7 +24,7 @@ fun defaultSettingsSearchEntries(): List<SettingSearchEntry> = listOf(
     SettingSearchEntry(SettingsRoute.SECURITY, R.string.autolock_title, "القفل التلقائي auto lock مهلة timeout"),
     SettingSearchEntry(SettingsRoute.SECURITY, R.string.quickmode_title, "الفتح السريع quick mode تجاوز"),
     SettingSearchEntry(SettingsRoute.SECURITY, R.string.shots_title, "لقطات الشاشة screenshots منع block"),
-    SettingSearchEntry(SettingsRoute.SECURITY, R.string.shred_title, "الإتلاف الآمن secure delete shred مسح"),
+    SettingSearchEntry(SettingsRoute.SECURITY, R.string.shred_title, "الإتلاف الآمن secure delete shred مسح crypto-shred مفتاح التشفير"),
     SettingSearchEntry(SettingsRoute.SECURITY, R.string.privacy_title, "الخصوصية privacy تصدير export حذف حساب delete بيانات data"),
     SettingSearchEntry(SettingsRoute.SECURITY, R.string.sec_status_title, "حالة الأمان security status أمان"),
     SettingSearchEntry(SettingsRoute.APPEARANCE, R.string.theme_title, "الوضع المظهر theme فاتح داكن light dark"),
