@@ -76,6 +76,8 @@ fun AccountScreen(
     // T4 (المرحلة 0أ-1): القرار المركزي من premiumVm.isPro() يشمل التجربة — بلا دالة حرة
     // تُجمَع trialOn هنا ليعيد التركيب نفسه عند بدء/انتهاء التجربة
     val trialOn by premiumVm.trialActive.collectAsStateWithLifecycle()
+    // المرحلة 1أ: مصدر Pro للعرض — "من أين جاء؟" (اشتراك ساري vs تجربة مجانية)
+    val proSource by premiumVm.source.collectAsStateWithLifecycle()
     val pro = remember(trialOn, entitlement) { premiumVm.isPro() }
     val trialOnly = trialOn && entitlement?.pro != true
     val planLabel = stringResource(
@@ -128,6 +130,18 @@ fun AccountScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                        // المرحلة 1أ: سطر المصدر تحت الشارة — يظهر فقط لمشتركي Pro
+                        if (pro) {
+                            Text(
+                                stringResource(
+                                    if (proSource == EntitlementSource.TRIAL) R.string.pro_source_trial
+                                    else R.string.pro_source_server
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
                 }
             }

@@ -15,6 +15,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+// المرحلة 1أ: مصدر الاستحقاق — "من أين جاء Pro؟" يُعرض في شاشة الحساب.
+// SERVER = pro من السيرفر عبر force، CACHED = pro من الكاش عبر refresh، TRIAL = تجربة نشطة.
+enum class EntitlementSource {
+    SERVER,
+    TRIAL,
+    CACHED,
+    AUTH_EXPIRED,
+    NONE
+}
+
 // حالة الترقية للـ Paywall — بلا runBlocking، كل شيء معلّق
 @HiltViewModel
 class PremiumViewModel @Inject constructor(
@@ -40,10 +50,33 @@ class PremiumViewModel @Inject constructor(
     // M4 (المرحلة 0أ-3): تُمسَح بعد عرضها للمستخدم — تُستهلَك مرة واحدة فقط
     fun clearLastResult() { _lastResult.value = null }
 
+    // المرحلة 1أ: مصدر Pro الحالي — يُحدَّث مع كل refresh/forceRefresh/setTrialActive
+    private val _source = MutableStateFlow(EntitlementSource.NONE)
+    val source: StateFlow<EntitlementSource> = _source.asStateFlow()
+
+    // يحسب المصدر من الحالة الحالية — التجربة أولًا (تغلب على الكل).
+    // fromServer=true فقط في forceRefresh (تجاوز الكاش) — وإلا CACHED.
+    private fun resolveSource(fromServer: Boolean): EntitlementSource = when {
+        _trialActive.value -> EntitlementSource.TRIAL
+        _entitlement.value?.pro == true -> if (fromServer) EntitlementSource.SERVER else EntitlementSource.CACHED
+        else -> EntitlementSource.NONE
+    }
+
+    // نسخة متزامنة من isPro() للاستخدام من ViewModels أخرى (فحص Pro داخل backupNow والت toggles) —
+    // المصدر الوحيد للتعريف، بلا تكرار لمنطق OR في أي مكان آخر.
+    fun isProNow(): Boolean = _trialActive.value || _entitlement.value?.pro == true
+
+    // اسم مستعار واضح: النسخ الاحتياطي يستخدم نفس تعريف isPro تمامًا (T3 مغلق — التجربة تفتح ncPro).
+    fun isProForBackup(): Boolean = isPro()
+
     // التجربة المجانية (27 سبتمبر 2026): تُغذَّى من الإعدادات — تفتح كل البوابات كـ Pro حتى انتهائها
     private val _trialActive = MutableStateFlow(false)
     val trialActive: StateFlow<Boolean> = _trialActive.asStateFlow()
-    fun setTrialActive(v: Boolean) { _trialActive.value = v }
+    fun setTrialActive(v: Boolean) {
+        _trialActive.value = v
+        // المرحلة 1أ: بدء التجربة = TRIAL، انتهاؤها = إعادة الحساب من الاستحقاق المخزن
+        _source.value = resolveSource(fromServer = false)
+    }
 
     init {
         refresh()
@@ -52,10 +85,10 @@ class PremiumViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             runCatching { repo.refresh() }
-                .onSuccess { _entitlement.value = it; _authExpired.value = false }
+                .onSuccess { _entitlement.value = it; _authExpired.value = false; _source.value = resolveSource(fromServer = false) }
                 .onFailure { e ->
-                    if (e is AuthExpiredException) _authExpired.value = true
-                    else _entitlement.value = Entitlement.FREE
+                    if (e is AuthExpiredException) { _authExpired.value = true; _source.value = EntitlementSource.AUTH_EXPIRED }
+                    else { _entitlement.value = Entitlement.FREE; _source.value = resolveSource(fromServer = false) }
                 }
         }
     }
@@ -67,8 +100,8 @@ class PremiumViewModel @Inject constructor(
         viewModelScope.launch {
             _refreshing.value = true
             runCatching { repo.refresh(force = true) }
-                .onSuccess { _entitlement.value = it; _authExpired.value = false }
-                .onFailure { e -> if (e is AuthExpiredException) _authExpired.value = true }
+                .onSuccess { _entitlement.value = it; _authExpired.value = false; _source.value = resolveSource(fromServer = true) }
+                .onFailure { e -> if (e is AuthExpiredException) { _authExpired.value = true; _source.value = EntitlementSource.AUTH_EXPIRED } }
             _refreshing.value = false
         }
     }

@@ -726,6 +726,8 @@
     <string name="acc_plan_free">Free</string>
     <string name="acc_plan_pro">Pro</string>
     <string name="acc_plan_pro_trial">Pro (trial)</string>
+    <string name="pro_source_server">Active subscription</string>
+    <string name="pro_source_trial">Free trial</string>
     <string name="purchase_success">Pro activated — enjoy all features</string>
     <string name="purchase_unavailable">Store unavailable right now — try again later</string>
     <string name="purchase_failed_fmt">Purchase failed: %1$s</string>
