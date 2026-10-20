@@ -1667,6 +1667,8 @@ private fun ProPaywall(premiumVm: PremiumViewModel, accountVm: AccountViewModel,
     val signedInId by accountVm.accountId.collectAsStateWithLifecycle()
     val busy by accountVm.signingIn.collectAsStateWithLifecycle()
     val refreshingState by premiumVm.refreshing.collectAsStateWithLifecycle()
+    // M4 (المرحلة 0أ-3): نتيجة آخر شراء تُعرض للمستخدم — النجاح يُحدِّث الحالة تلقائيًا
+    val lastResult by premiumVm.lastResult.collectAsStateWithLifecycle()
     PaywallScreen(
         buying = buying,
         onUpgrade = { premiumVm.purchase(it) },
@@ -1677,7 +1679,10 @@ private fun ProPaywall(premiumVm: PremiumViewModel, accountVm: AccountViewModel,
         refreshing = refreshingState,
         onRefreshStatus = { premiumVm.forceRefresh() },
         trialActive = trialActive,
-        trialLeftMs = trialLeftMs
+        trialLeftMs = trialLeftMs,
+        lastResult = lastResult,
+        onPurchaseSuccess = { premiumVm.forceRefresh() },
+        onResultConsumed = { premiumVm.clearLastResult() }
     )
 }
 

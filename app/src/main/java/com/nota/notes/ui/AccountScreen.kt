@@ -1,6 +1,7 @@
 package com.nota.notes.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -80,6 +83,18 @@ fun AccountScreen(
         else if (pro) R.string.acc_plan_pro
         else R.string.acc_plan_free
     )
+    // M4 (المرحلة 0أ-3): شاشة الحساب فيها أزرار شراء — تعرض نتيجة الشراء هنا أيضًا
+    val lastResult by premiumVm.lastResult.collectAsStateWithLifecycle()
+    val purchaseHost = remember { SnackbarHostState() }
+    PurchaseResultEffect(
+        lastResult = lastResult,
+        host = purchaseHost,
+        successMsg = stringResource(R.string.purchase_success),
+        unavailableMsg = stringResource(R.string.purchase_unavailable),
+        failedFmt = stringResource(R.string.purchase_failed_fmt),
+        onSuccess = { premiumVm.forceRefresh() },
+        onConsumed = { premiumVm.clearLastResult() }
+    )
     val ncQuota by ncvm.quota.collectAsStateWithLifecycle()
     // حالة التخزين: تُحدث مع تبدل الحساب — جزء من بيانات الاشتراك
     LaunchedEffect(id) {
@@ -87,6 +102,7 @@ fun AccountScreen(
     }
     val fmt = rememberDateFmt()
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+      Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // الهوية: الأفاتار (صورة المستخدم أو حرفه) + البريد + شارة الباقة
             Card(
@@ -289,6 +305,11 @@ fun AccountScreen(
                 }
             }
         }
+        SnackbarHost(
+            purchaseHost,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
+      }
     }
 }
 

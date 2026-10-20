@@ -19,6 +19,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -26,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nota.notes.R
 import com.nota.notes.billing.BillingGateway
+import com.nota.notes.billing.BillingResult
 
 // بوابة الدفع — Surface إجباري (قاعدة النص الأسود: كل شاشة جديدة بـ Surface يمنح لون المحتوى الصحيح)
 // تُعرض عند مدخل أي ميزة مدفوعة بلا صلاحية — المجلدات أولها
@@ -42,12 +47,27 @@ fun PaywallScreen(
     // التجربة المجانية (27 سبتمبر 2026): بانر المتبقي + سطر الخصم — الأسعار النهائية من متجر Play
     trialActive: Boolean = false,
     trialLeftMs: Long = 0L,
-    discountPct: Int = com.nota.notes.data.SettingsStore.TRIAL_DISCOUNT_PCT
+    discountPct: Int = com.nota.notes.data.SettingsStore.TRIAL_DISCOUNT_PCT,
+    // M4 (المرحلة 0أ-3): نتيجة آخر شراء — تُعرض مرة واحدة ثم تُستهلَك
+    lastResult: BillingResult? = null,
+    onPurchaseSuccess: () -> Unit = {},
+    onResultConsumed: () -> Unit = {}
 ) {
+    val purchaseHost = remember { SnackbarHostState() }
+    PurchaseResultEffect(
+        lastResult = lastResult,
+        host = purchaseHost,
+        successMsg = stringResource(R.string.purchase_success),
+        unavailableMsg = stringResource(R.string.purchase_unavailable),
+        failedFmt = stringResource(R.string.purchase_failed_fmt),
+        onSuccess = onPurchaseSuccess,
+        onConsumed = onResultConsumed
+    )
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+      Box(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -169,6 +189,11 @@ fun PaywallScreen(
                 Text(stringResource(R.string.back_cd))
             }
         }
+        SnackbarHost(
+            purchaseHost,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
+      }
     }
 }
 
@@ -201,4 +226,39 @@ fun TrialOfferDialog(
             }
         }
     )
+}
+
+// M4 (المرحلة 0أ-3): يعرض نتيجة آخر شراء مرة واحدة — النجاح/الفشل/المتجر بتنبيه، والإلغاء يُستهلَك بصمت
+@Composable
+internal fun PurchaseResultEffect(
+    lastResult: BillingResult?,
+    host: SnackbarHostState,
+    successMsg: String,
+    unavailableMsg: String,
+    failedFmt: String,
+    onSuccess: () -> Unit = {},
+    onConsumed: () -> Unit
+) {
+    LaunchedEffect(lastResult) {
+        when (lastResult) {
+            null -> {}
+            is BillingResult.Success -> {
+                onSuccess()
+                host.showSnackbar(successMsg)
+                onConsumed()
+            }
+            BillingResult.Unavailable -> {
+                host.showSnackbar(unavailableMsg)
+                onConsumed()
+            }
+            is BillingResult.Failed -> {
+                host.showSnackbar(failedFmt.format(lastResult.reason))
+                onConsumed()
+            }
+            BillingResult.Cancelled -> {
+                // المستخدم ألغى بنفسه — بلا تنبيه، وتُستهلَك حتى لا تتراكم
+                onConsumed()
+            }
+        }
+    }
 }

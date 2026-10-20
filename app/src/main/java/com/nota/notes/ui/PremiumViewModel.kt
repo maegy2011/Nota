@@ -37,6 +37,9 @@ class PremiumViewModel @Inject constructor(
     private val _lastResult = MutableStateFlow<BillingResult?>(null)
     val lastResult: StateFlow<BillingResult?> = _lastResult.asStateFlow()
 
+    // M4 (المرحلة 0أ-3): تُمسَح بعد عرضها للمستخدم — تُستهلَك مرة واحدة فقط
+    fun clearLastResult() { _lastResult.value = null }
+
     // التجربة المجانية (27 سبتمبر 2026): تُغذَّى من الإعدادات — تفتح كل البوابات كـ Pro حتى انتهائها
     private val _trialActive = MutableStateFlow(false)
     val trialActive: StateFlow<Boolean> = _trialActive.asStateFlow()
