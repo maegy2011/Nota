@@ -1010,6 +1010,8 @@
     <string name="reckey_status_off">مفتاح الاسترداد: غير مُعد</string>
     <string name="reckey_setup_btn">إعداد مفتاح الاسترداد</string>
     <string name="reckey_regen_btn">إعادة إنشاء مفتاح الاسترداد</string>
+    <string name="reckey_regen_auth_title">تأكيد الهوية</string>
+    <string name="reckey_regen_note">لإعادة الإنشاء أدخل PIN الحالي أو استخدم البصمة. بعد الحفظ يتوقف مفتاح الاسترداد القديم عن العمل نهائيًا.</string>
     <string name="reckey_verify_btn">تحقق من مفتاح الاسترداد</string>
     <string name="reckey_verify_hint">أدخل الكلمات الـ 12 كاملة للتحقق من حفظك</string>
     <string name="reckey_ok">المفتاح صحيح — حفظك سليم</string>

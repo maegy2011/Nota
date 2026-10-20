@@ -167,6 +167,84 @@ fun RecoveryKeySetup(
     }
 }
 
+// بوابة إعادة إنشاء المفتاح (P3-A2): PIN الحالي أو بصمة قبل عرض عبارة جديدة.
+// الفشل يُحتسب في الدرع (عبر verify) — رسالة عامة فقط. بعد الاستبدال يتوقف
+// القديم نهائيًا (reckey_regen_note) — لا نسخ احتياطية مرتبطة بالمفتاح أصلًا:
+// المفتاح بوابة تعيين PIN فقط، وملفات .nota تُقفل بكلمة مرورها الخاصة.
+@Composable
+fun RecRegenGate(authVm: AuthViewModel, onOk: () -> Unit, onDismiss: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var err by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    val act = ctx as? androidx.fragment.app.FragmentActivity
+    val bioOk = act != null && authVm.canBiometric()
+    val genericFail = stringResource(R.string.recover_generic_fail)
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.reckey_regen_auth_title)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.reckey_regen_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                if (bioOk) {
+                    OutlinedButton(
+                        onClick = {
+                            act?.let { a ->
+                                authVm.promptBiometric(a, onOk = onOk, onErr = { err = genericFail })
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.recover_bio)) }
+                }
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter(Char::isDigit).take(8); err = null },
+                    label = { Text(stringResource(R.string.currentpin_hint)) },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                    ),
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
+                if (err != null) {
+                    Text(
+                        err!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                            .semantics { liveRegion = LiveRegionMode.Assertive }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        when (authVm.verify(pin)) {
+                            is AuthViewModel.PinResult.Success -> onOk()
+                            is AuthViewModel.PinResult.Wrong -> { err = genericFail; busy = false }
+                            is AuthViewModel.PinResult.Locked -> { err = genericFail; busy = false }
+                        }
+                    }
+                },
+                enabled = pin.isNotEmpty() && !busy
+            ) { Text(stringResource(R.string.verify_btn)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
 // التحقق من حفظ مفتاح الاسترداد (الإدارة — Commit 2): إدخال العبارة كاملة والتحقق من hash.
 // انحراف موثق عن البرومبت (عرض 3 كلمات): مستحيل بلا تخزين الكلمات — والتحقق الكامل أدق.
 // يُحتسب الفشل في الدرع (نفس عدّاد التخمين) — رسالة عامة فقط.

@@ -293,6 +293,8 @@ fun SettingsScreen(
             // انحراف موثق: التحقق بإدخال الـ 12 كلمة كاملة بدل عرض 3 كلمات — الكلمات لا تُخزَّن أبدًا فلا يمكن عرضها
             var showRecSetup by remember { mutableStateOf(false) }
             var showRecVerify by remember { mutableStateOf(false) }
+            // بوابة إعادة الإنشاء (P3-A2): الإعداد الأول مباشرة، وإعادة الإنشاء بعد PIN/بصمة
+            var showRecGate by remember { mutableStateOf(false) }
             Row(
                 Modifier.fillMaxWidth().bringIntoViewRequester(recReq).padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -305,7 +307,10 @@ fun SettingsScreen(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { showRecSetup = true; authVm.touch() }) {
+                TextButton(onClick = {
+                    if (hasRec) showRecGate = true
+                    else { showRecSetup = true; authVm.touch() }
+                }) {
                     Text(stringResource(if (hasRec) R.string.reckey_regen_btn else R.string.reckey_setup_btn))
                 }
                 if (hasRec) {
@@ -313,6 +318,13 @@ fun SettingsScreen(
                         Text(stringResource(R.string.reckey_verify_btn))
                     }
                 }
+            }
+            if (showRecGate) {
+                RecRegenGate(
+                    authVm = authVm,
+                    onOk = { showRecGate = false; showRecSetup = true; authVm.touch() },
+                    onDismiss = { showRecGate = false }
+                )
             }
             if (showRecSetup) {
                 RecoveryKeySetup(

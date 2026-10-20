@@ -989,6 +989,8 @@
     <string name="reckey_status_off">Recovery key: not set</string>
     <string name="reckey_setup_btn">Set up recovery key</string>
     <string name="reckey_regen_btn">Regenerate recovery key</string>
+    <string name="reckey_regen_auth_title">Confirm identity</string>
+    <string name="reckey_regen_note">To regenerate, enter your current PIN or use biometrics. After saving, the old recovery key stops working permanently.</string>
     <string name="reckey_verify_btn">Verify recovery key</string>
     <string name="reckey_verify_hint">Enter all 12 words to check your copy</string>
     <string name="reckey_ok">Key is correct — your copy is good</string>

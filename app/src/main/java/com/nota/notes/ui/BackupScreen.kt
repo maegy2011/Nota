@@ -85,6 +85,13 @@ fun copySensitive(ctx: android.content.Context, text: String) {
             }
         }
         cm.setPrimaryClip(clip)
+        // P3-A2: تعمية تلقائية بعد دقيقة — لصق مفتاح الاسترداد ثم نسيانه في الحافظة
+        // خطر صامت. يُمسح أي محتوى لاحق أيضًا — موثق في نص التنبيه (reckey_copied).
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                runCatching { cm.clearPrimaryClip() }
+            }, 60_000L)
+        }
     } catch (e: Exception) {
         // الفشل الصامت هنا مقصود — النسخ راحة لا مسار أمان
     }
