@@ -38,14 +38,15 @@ class GdprExportRunner @Inject constructor(
             )
         }
         onProgress(0.45f)
-        // 2) المرفقات مفكوكة — فك عبر MediaCrypto، والساقط يُقرأ خامًا (ملفات قديمة غير مختومة).
+        // 2) المرفقات مفكوكة — فك عبر PerFileMedia (مفتاح خاص أو قديم)، والساقط يُقرأ خامًا (ملفات قديمة غير مختومة).
+        // P3-D1: ملفات المفاتيح الجانبية (*.key) تُستبعد دائمًا — مادة مفاتيح لا تغادر الجهاز أبدًا.
         // أي ملف يفشل تمامًا يُتخطى ويُوثَّق في README (لا يُسقط التصدير).
         val files = mutableMapOf<String, ByteArray>()
         val skipped = mutableListOf<String>()
-        val mediaFiles = runCatching { NoteMediaFiles.dir(ctx).listFiles()?.toList() ?: emptyList() }.getOrDefault(emptyList())
+        val mediaFiles = runCatching { NoteMediaFiles.dir(ctx).listFiles()?.filter { !com.nota.notes.security.PerFileMedia.isKeySidecar(it.name) } ?: emptyList() }.getOrDefault(emptyList())
         val total = mediaFiles.size.coerceAtLeast(1)
         mediaFiles.forEachIndexed { i, f ->
-            val bytes = runCatching { com.nota.notes.security.MediaCrypto.decryptFile(f) ?: f.readBytes() }.getOrNull()
+            val bytes = runCatching { com.nota.notes.security.PerFileMedia.readAll(f) ?: f.readBytes() }.getOrNull()
             if (bytes != null) files["attachments/${f.name}"] = bytes else skipped.add(f.name)
             onProgress(0.45f + 0.3f * (i + 1) / total)
         }

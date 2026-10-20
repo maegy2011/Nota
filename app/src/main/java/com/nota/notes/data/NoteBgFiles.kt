@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import com.nota.notes.security.MediaCrypto
+import com.nota.notes.security.PerFileMedia
 import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,13 @@ object NoteBgFiles {
             val bos = ByteArrayOutputStream()
             bmp.compress(Bitmap.CompressFormat.JPEG, 85, bos)
             if (!bmp.isRecycled) bmp.recycle()
-            MediaCrypto.encryptToFile(file(ctx, name), bos.toByteArray())
+            val bytes = bos.toByteArray()
+            try {
+                // P3-D1: مفتاح خاص لكل ملف — السقوط للمسار القديم عند تعذر Keystore
+                if (!PerFileMedia.writeNew(file(ctx, name), bytes)) MediaCrypto.encryptToFile(file(ctx, name), bytes)
+            } finally {
+                java.util.Arrays.fill(bytes, 0)
+            }
             name
         }.getOrNull()
     }
@@ -48,8 +55,8 @@ object NoteBgFiles {
             runCatching {
                 val f = file(ctx, name)
                 if (!f.exists()) return@runCatching null
-                val plain = MediaCrypto.decryptFile(f) ?: return@runCatching null
-                MediaCrypto.sealIfPlain(f) // ترحيل صامت: قديم عادي → مشفر
+                val plain = PerFileMedia.readAll(f) ?: return@runCatching null
+                PerFileMedia.sealPlain(f) // ترحيل صامت: قديم → مفتاح خاص (أو مشترك عند تعذر Keystore)
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeByteArray(plain, 0, plain.size, bounds)
                 if (bounds.outWidth <= 0) return@runCatching null
@@ -78,9 +85,13 @@ object NoteBgFiles {
             runCatching {
                 val src = file(ctx, name)
                 if (!src.exists()) return@runCatching null
-                val plain = MediaCrypto.decryptFile(src) ?: return@runCatching null
+                val plain = PerFileMedia.readAll(src) ?: return@runCatching null
                 val dst = "bg_${System.currentTimeMillis()}_copy.jpg"
-                MediaCrypto.encryptToFile(file(ctx, dst), plain)
+                try {
+                    if (!PerFileMedia.writeNew(file(ctx, dst), plain)) MediaCrypto.encryptToFile(file(ctx, dst), plain)
+                } finally {
+                    java.util.Arrays.fill(plain, 0)
+                }
                 dst
             }.getOrNull()
         }

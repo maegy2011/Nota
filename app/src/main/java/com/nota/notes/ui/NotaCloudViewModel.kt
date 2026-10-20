@@ -137,7 +137,8 @@ class NotaCloudViewModel @Inject constructor(
                 val f = com.nota.notes.data.NoteMediaFiles.file(ctx, a.file)
                 if (f.exists() && f.length() > 0) {
                     // تُفك محليًا ثم تُعاد للسحابة بمفتاح المستخدم الخاص — المفكوك لا يغادر الذاكرة أبدًا
-                    val plain = runCatching { com.nota.notes.security.MediaCrypto.decryptFile(f) }.getOrNull()
+                    // P3-D1: readAll يفك ملفات المفتاح-الخاص والقديمة معًا
+                    val plain = runCatching { com.nota.notes.security.PerFileMedia.readAll(f) }.getOrNull()
                     if (plain != null) runCatching {
                         val cloud = com.nota.notes.security.CloudMediaCrypto.encryptKey(key, plain)
                         java.util.Arrays.fill(plain, 0)
@@ -148,7 +149,7 @@ class NotaCloudViewModel @Inject constructor(
             n.background?.let { bg ->
                 val f = com.nota.notes.data.NoteBgFiles.file(ctx, bg)
                 if (f.exists() && f.length() > 0) {
-                    val plain = runCatching { com.nota.notes.security.MediaCrypto.decryptFile(f) }.getOrNull()
+                    val plain = runCatching { com.nota.notes.security.PerFileMedia.readAll(f) }.getOrNull()
                     if (plain != null) runCatching {
                         val cloud = com.nota.notes.security.CloudMediaCrypto.encryptKey(key, plain)
                         java.util.Arrays.fill(plain, 0)
@@ -185,7 +186,8 @@ class NotaCloudViewModel @Inject constructor(
                         f.writeBytes(plain)
                         java.util.Arrays.fill(plain, 0)
                         // تُختم فورًا لتبقى مشفرة على الجهاز (التشفير أثناء الراحة دائم)
-                        com.nota.notes.security.MediaCrypto.sealIfPlain(f)
+                        // P3-D1: ختم بمفتاح خاص إن أمكن
+                        com.nota.notes.security.PerFileMedia.sealPlain(f)
                     }
                 }
             }
@@ -201,7 +203,7 @@ class NotaCloudViewModel @Inject constructor(
                         f.parentFile?.mkdirs()
                         f.writeBytes(plain)
                         java.util.Arrays.fill(plain, 0)
-                        com.nota.notes.security.MediaCrypto.sealIfPlain(f)
+                        com.nota.notes.security.PerFileMedia.sealPlain(f)
                     }
                 }
             }
