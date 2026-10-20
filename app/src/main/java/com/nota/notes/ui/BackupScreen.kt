@@ -129,11 +129,11 @@ fun BackupScreen(
     val ncWorking by ncvm.working.collectAsStateWithLifecycle()
     val ncMsg by ncvm.message.collectAsStateWithLifecycle()
     val ncDetail by ncvm.detail.collectAsStateWithLifecycle()
-    val ncEntitlement by premiumVm.entitlement.collectAsStateWithLifecycle()
     // ncPro excludes trial TEMPORARILY — media upload to cloud requires trust beyond trial.
     // Temporary exception per product decision (Phase 0) — Phase 1 closes it: Trial will open ncPro.
     // See: product decision documented in nota-phase0-status.md
-    val ncPro = ncEntitlement?.pro == true
+    // المرحلة 1ب-2 (T3 مغلق بقرار محمد): Trial يفتح ncPro الآن — نفس تعريف isPro الموحد.
+    val ncPro = premiumVm.isPro()
     val clipboard = LocalClipboardManager.current
     LaunchedEffect(signedIn) {
         if (signedIn) ncvm.refresh()

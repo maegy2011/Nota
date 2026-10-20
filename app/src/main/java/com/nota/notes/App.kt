@@ -83,8 +83,6 @@ import com.nota.notes.ui.FoldersViewModel
 import com.nota.notes.ui.Haptics
 import com.nota.notes.ui.OnboardingScreen
 import com.nota.notes.ui.PaywallScreen
-import com.nota.notes.billing.Entitlement
-import com.nota.notes.billing.hasFeature
 import com.nota.notes.ui.PremiumViewModel
 import com.nota.notes.ui.rememberGoogleSignInLauncher
 import com.nota.notes.ui.SetPinScreen
@@ -403,7 +401,6 @@ private fun AuthedApp(
     var screen by remember { mutableStateOf(Screen.LIST) }
     // بوابة PRO: pro من السيرفر يفتح كل مزايا ما بعد إغلاق المجانية (قرار 20 سبتمبر 2026) — غيره يُحوَّل للـ paywall مع تنبيه
     // التجربة المجانية (27 سبتمبر 2026): تفتح كل شيء كـ Pro حتى انتهاء المدة — تُعاد كل دقيقة لالتقاط الانتهاء
-    val entitlementTop by premiumVm.entitlement.collectAsStateWithLifecycle()
     val trialStartTop by settings.trialStart.collectAsStateWithLifecycle()
     val trialOfferedTop by settings.trialOffered.collectAsStateWithLifecycle()
     var trialTick by remember { mutableStateOf(0) }
@@ -417,7 +414,8 @@ private fun AuthedApp(
     val trialOn = com.nota.notes.data.SettingsStore.isTrialActive(trialStartTop, trialNow)
     val trialLeftMs = (trialStartTop + com.nota.notes.data.SettingsStore.trialDurationMs() - trialNow).coerceAtLeast(0L)
     LaunchedEffect(trialOn) { premiumVm.setTrialActive(trialOn) }
-    val isPro = entitlementTop?.pro == true || trialOn
+    // المرحلة 1ب-1: المصدر الوحيد لتعريف isPro — premiumVm.isPro() (سيرفر pro أو تجربة نشطة)
+    val isPro = premiumVm.isPro()
     // أفاتار الرئيسية: يُحدَّث مع تبدّل الحساب — صورته أو حرفه أو عام
     val acctId by accountVm.accountId.collectAsStateWithLifecycle()
     val acctMail by accountVm.email.collectAsStateWithLifecycle()
@@ -1206,8 +1204,8 @@ private fun AuthedApp(
 
     when {
         editing != null -> {
-            val locEntitlement by premiumVm.entitlement.collectAsStateWithLifecycle()
-            val locAllowed = locEntitlement?.let { it.pro || hasFeature(it.features, Entitlement.FEATURE_LOCATION) } == true
+            // المرحلة 1ب-3: البوابة الموحدة — الموقع المرفق مدفوع، ويُفتح بـ Pro (سيرفر أو تجربة)
+            val locAllowed = premiumVm.isPro()
             // المحرر: الشريط السفلي ثابت أيضًا (قرار 26 سبتمبر 2026) — بلا زر ➕ فيه حتى لا يمسح المسودة
             DrawerShell(selectedKey, acctId, acctMail ?: acctId, isPro, premiumVm.canUseFolders(), ::goKey, barSlots = effectiveSlots.filter { it != com.nota.notes.data.SettingsStore.NAV_ADD }, onBarAdd = {}) { _ -> NoteEditorScreen(
             title = title, body = body,
