@@ -94,7 +94,8 @@ class PremiumViewModel @Inject constructor(
                 .getOrElse { BillingResult.Failed(it.message ?: "error") }
             _lastResult.value = r
             if (r is BillingResult.Success) {
-                runCatching { repo.refresh() }.onSuccess { _entitlement.value = it }
+                // C3 (المرحلة 0أ-2): force وإلا قد يعيد كاش FREE طازج بعد دفع ناجح
+                runCatching { repo.refresh(force = true) }.onSuccess { _entitlement.value = it }
             }
             _buying.value = false
         }
