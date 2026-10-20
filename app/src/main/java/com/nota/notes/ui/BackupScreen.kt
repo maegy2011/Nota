@@ -3,6 +3,7 @@ package com.nota.notes.ui
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
@@ -141,6 +143,10 @@ fun BackupScreen(
         }
     }
     val fmt = remember { SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()) }
+    // P3-C2: طي الطرق + روابط سفلية + شيت الباقات
+    var showLog by remember { mutableStateOf(false) }
+    var driveAdv by remember { mutableStateOf(false) }
+    var proSheet by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Scaffold(
             // داخل DrawerShell: الهيدر المثبت من الغلاف — بلا شريط داخلي (27 سبتمبر 2026)
@@ -156,9 +162,32 @@ fun BackupScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                // القفل المرئي: البانر يقود للترقية — والإجراءات نفسها معطّلة مع أقسام مقفولة
+                // القفل المرئي: البانر يفتح شيت «تعرّف على الباقات» بدل قفل مباشر (P3-C2)
                 if (locked) {
-                    ProLockedBanner(onLocked)
+                    ProLockedBanner { proSheet = true }
+                }
+                if (proSheet) {
+                    ModalBottomSheet(onDismissRequest = { proSheet = false }) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text(
+                                stringResource(R.string.bk_pro_title),
+                                style = MaterialTheme.typography.headlineSmall,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Text(
+                                stringResource(R.string.bk_pro_msg),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            Button(onClick = { proSheet = false; onLocked() }, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.paywall_upgrade))
+                            }
+                            TextButton(onClick = { proSheet = false }, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.cancel))
+                            }
+                        }
+                    }
                 }
                 if (!signedIn) {
                     SectionCard(stringResource(R.string.cloud_sec_status), top = 0.dp) {
@@ -172,17 +201,89 @@ fun BackupScreen(
                         }
                     }
                 } else {
-                    DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked)
-                    NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked)
-                    if (ncPro) {
-                        CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
+                    // P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
+                    BackupSummaryCard(
+                        last, ncPointer?.updatedAt ?: 0L, fmt,
+                        working || ncWorking, { vm.backupNow() }, locked, onLocked
+                    )
+                    MethodSection(stringResource(R.string.bk_method_drive)) {
+                        DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv })
                     }
-                    FileBackupCard(notesVm, authVm, fmt, locked, onLocked)
-                    RestoreLogCard(notesVm, authVm, fmt, locked, onLocked)
+                    MethodSection(stringResource(R.string.bk_method_ncloud)) {
+                        NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked)
+                        if (ncPro) {
+                            CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
+                        }
+                    }
+                    MethodSection(stringResource(R.string.bk_method_file)) {
+                        FileBackupCard(notesVm, authVm, fmt, locked, onLocked)
+                    }
+                    // روابط سفلية: سجل الاستعادة + إعدادات Drive المتقدمة
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showLog = !showLog }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.bk_links_log))
+                        }
+                        TextButton(onClick = { driveAdv = !driveAdv }, modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.bk_links_adv))
+                        }
+                    }
+                    if (showLog) {
+                        RestoreLogCard(notesVm, authVm, fmt, locked, onLocked)
+                    }
                 }
             }
         }
     }
+}
+
+// P3-C2: بطاقة ملخص الحالة — أحدث نسخة (Drive/سحابة) + زر «نسخ الآن»
+@Composable
+private fun BackupSummaryCard(
+    lastDrive: Long,
+    lastCloud: Long,
+    fmt: SimpleDateFormat,
+    busy: Boolean,
+    onBackupNow: () -> Unit,
+    locked: Boolean = false,
+    onLocked: () -> Unit = {}
+) {
+    val best = maxOf(lastDrive, lastCloud)
+    SectionCard(stringResource(R.string.bk_sum_title), top = 0.dp, locked = locked) {
+        Text(
+            if (best > 0) stringResource(
+                R.string.bk_sum_fmt,
+                fmt.format(Date(best)),
+                stringResource(if (lastDrive >= lastCloud) R.string.bk_log_src_drive else R.string.bk_log_src_ncloud)
+            )
+            else stringResource(R.string.bk_sum_none),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Button(
+            onClick = onBackupNow,
+            enabled = !busy && !locked,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) {
+            Text(stringResource(R.string.cloud_backup_now))
+        }
+    }
+}
+
+// P3-C2: قسم طريقة قابل للطي — مفتوح افتراضيًا (الطي يخفي الحقول مؤقتًا)
+@Composable
+private fun MethodSection(title: String, content: @Composable () -> Unit) {
+    var open by remember { mutableStateOf(true) }
+    Row(
+        Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = { open = !open }) { Text(if (open) "−" else "+") }
+    }
+    if (open) content()
 }
 
 // 1) نسخة Drive اليومية: الحالة + نسخ/استعادة + مفتاح التلقائي
@@ -195,7 +296,10 @@ private fun DriveCard(
     msg: String?,
     fmt: SimpleDateFormat,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    // P3-C2: التكرار/عدد النسخ/كلمة المرور مطوية في «إعدادات متقدمة»
+    advOpen: Boolean = false,
+    onAdvToggle: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val keep by vm.keepCount.collectAsStateWithLifecycle()
@@ -249,6 +353,12 @@ private fun DriveCard(
         OutlinedButton(onClick = { vm.restoreNow() }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.cloud_restore))
         }
+    }
+    // P3-C2: التكرار وعدد النسخ وكلمة المرور في المتقدمة — الزر الرئيسي ظاهر دائمًا
+    TextButton(onClick = onAdvToggle, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(if (advOpen) R.string.bk_adv_hide else R.string.bk_adv_show))
+    }
+    if (advOpen) {
         // تكرار النسخ المجدول (27 سبتمبر 2026): إيقاف/يومي فجرًا/أسبوعي — الاختيار يجدول المنبه فورًا + إشعار بالنتيجة
 
         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -283,7 +393,6 @@ private fun DriveCard(
             )
             TextButton(onClick = { vm.setKeepCount(keep + 1) }, enabled = !working && keep < SettingsStore.MAX_CLOUD_KEEP && !locked) { Text("+") }
         }
-    }
     // كلمة مرور Drive الثابتة (27 سبتمبر 2026): تُشفر بها كل النسخ تلقائيًا — وتُطلب أسبوعيًا للتأكيد
     SectionCard(stringResource(R.string.cloud_pw_title), locked = locked) {
         if (!pwSet) {
@@ -387,6 +496,7 @@ private fun DriveCard(
                 modifier = Modifier.padding(top = 8.dp)
             ) { Text(stringResource(R.string.cloud_pw_manual_btn)) }
         }
+    }
     }
     // سؤال الانكماش: الجديدة أصغر من نصف السابقة — متابعة أم إلغاء (27 سبتمبر 2026)
     shrinkPct?.let { pct ->
@@ -985,7 +1095,8 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
         }
     }
 
-    SectionCard(stringResource(R.string.backup_title), locked = locked) {
+    // P3-C2: التصدير بطاقة مستقلة — حقلا كلمة مرور للتصدير فقط
+    SectionCard(stringResource(R.string.bk_exp_title), locked = locked) {
         Text(
             stringResource(R.string.backup_sub),
             style = MaterialTheme.typography.bodySmall,
@@ -1074,11 +1185,13 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             enabled = !busy && expPw.length >= 8 && expStrong && expPw == expPw2 && !locked,
             modifier = Modifier.padding(top = 8.dp)
         ) { Text(stringResource(R.string.bk_exp_btn)) }
-
+        }
+        // P3-C2: الاستعادة بطاقة مستقلة بحقل كلمة مرور مستقل — لا يجتمع حقلا التصدير والاستعادة معًا
+        SectionCard(stringResource(R.string.bk_res_title), locked = locked) {
         Button(
             onClick = { pickRestore.launch("*/*"); authVm.touch() },
             enabled = !busy && !locked,
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(R.string.bk_restore_pick)) }
         if (pendingRestore != null) {
             Text(
