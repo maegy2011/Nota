@@ -230,6 +230,15 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // P3-A3: عند التفعيل — البصمة مسار بديل لتعيين PIN إن نُسي (مقابل تحذير التعطيل أدناه)
+                    if (biometricAvailable && !biometricEnabled) {
+                        Text(
+                            stringResource(R.string.bio_enable_rec),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
                 // حوار تأكيد التعطيل (Commit 4ج): التعطيل يُزيل مسار استرداد — إلغاء افتراضي
                 var showDisableConfirm by remember { mutableStateOf(false) }

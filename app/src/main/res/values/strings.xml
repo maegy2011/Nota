@@ -226,6 +226,7 @@
     <string name="security_title">الأمان</string>
     <string name="bio_title">فتح بالبصمة</string>
     <string name="bio_sub">استخدم بصمتك لفتح نوتا بسرعة</string>
+    <string name="bio_enable_rec">تفعيل البصمة يتيح مسارًا بديلًا لتعيين PIN إذا نسيته.</string>
     <string name="bio_unavailable">البصمة غير متاحة على هذا الجهاز</string>
     <string name="shots_title">حظر لقطات الشاشة</string>
     <string name="shots_sub">منع لقطات الشاشة وإخفاء محتوى التطبيق في التطبيقات الأخيرة — مفعّل افتراضيًا لحماية ملاحظاتك</string>

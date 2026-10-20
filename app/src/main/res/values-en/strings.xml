@@ -226,6 +226,7 @@
     <string name="security_title">Protection</string>
     <string name="bio_title">Quick biometric unlock</string>
     <string name="bio_sub">Your fingerprint opens Nota in a second</string>
+    <string name="bio_enable_rec">Enabling biometrics gives you a backup way to set a new PIN if you forget it.</string>
     <string name="bio_unavailable">Biometrics not available on this device</string>
     <string name="shots_title">Block screenshots</string>
     <string name="shots_sub">Prevents screenshots and hides app content in recents — on by default to protect your notes</string>
