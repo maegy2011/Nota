@@ -641,6 +641,8 @@ private fun NotaCloudCard(
                         )
                     }
                     nm == "nc-err-quota" -> stringResource(R.string.ncloud_err_quota)
+                    // المرحلة 1ج: رفض رفع الوسائط لغير المشتركين (فحص داخل الـ VM)
+                    nm == "nc-err-pro-required" -> stringResource(R.string.ncloud_err_pro_required)
                     nm == "nc-err-nokey" -> stringResource(R.string.ncloud_err_nokey)
                     nm == "nc-err-nokey-upload" -> stringResource(R.string.ncloud_err_nokey_upload)
                     nm == "nc-err-decrypt" -> stringResource(R.string.ncloud_err_decrypt)

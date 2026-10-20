@@ -568,6 +568,7 @@
     <string name="ncloud_ok_backup">Backed up to Nota Cloud</string>
     <string name="ncloud_ok_restore">Restored %1$d, skipped %2$d</string>
     <string name="ncloud_err_quota">Quota full — upgrade your plan for more space</string>
+    <string name="ncloud_err_pro_required">Media upload to the cloud is a Pro feature — the free trial unlocks it; free accounts back up text only</string>
     <string name="ncloud_err_nobackup">No Nota Cloud backup yet</string>
     <string name="ncloud_err_auth">Sign-in session expired on this device — sign out, then sign back in with the same Google account to restore subscription and quota</string>
     <string name="ncloud_failed">Operation failed — check network and retry</string>

@@ -2,6 +2,7 @@ package com.nota.notes.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nota.notes.billing.EntitlementsRepo
 import com.nota.notes.data.Note
 import com.nota.notes.data.NotesRepository
 import com.nota.notes.data.SettingsStore
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -23,7 +25,10 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val repo: NotesRepository,
-    store: SettingsStore
+    private val store: SettingsStore,
+    // المرحلة 1ج: فحص Pro داخل الـ VM (defense in depth) — من نفس مصادر premiumVm.isPro().
+    // بلا حقن PremiumViewModel عمدًا: نسخة VM منفصلة ستملك trialActive=false دائمًا فتكسر التجربة.
+    private val entitlements: EntitlementsRepo
 ) : ViewModel() {
     val query = MutableStateFlow("")
     // فلترة حسب اللون — حالة جلسة فقط (لا تُحفظ)، null = الكل
@@ -175,8 +180,15 @@ class NotesViewModel @Inject constructor(
     // نسخة معلقة ترجع المعرف — للحفظ التلقائي (الجديدة تُفتح بنفس الجلسة بلا تكرار)
     suspend fun saveNow(id: Long?, title: String, body: String, color: Int = 0, folderId: Long? = null, background: String? = null, lat: Double? = null, lng: Double? = null, category: String? = null): Long =
         repo.save(id, title, body, color, folderId, background, lat, lng, category)
-    fun togglePin(id: Long) = viewModelScope.launch { runCatching { repo.togglePin(id) } }
-    fun toggleLock(id: Long) = viewModelScope.launch { runCatching { repo.toggleLock(id) } }
+    // المرحلة 1ج: نسخة متزامنة-المصادر من premiumVm.isPro() — الـ UI يمنع أصلًا (proLock)،
+    // وهذا يحمي من السباقات والاستدعاءات المباشرة. الرفض صامت هنا عمدًا: التغذية الراجعة في الـ UI.
+    private suspend fun proNow(): Boolean {
+        if (com.nota.notes.data.SettingsStore.isTrialActive(store.trialStart.first())) return true
+        return entitlements.cached.first().pro
+    }
+
+    fun togglePin(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.togglePin(id) } }
+    fun toggleLock(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.toggleLock(id) } }
     // المفضلة: بحث مستقل + نفس الترتيب والفلترة اللونية — القلب يقلب الحالة
     val favoriteQuery = MutableStateFlow("")
     private val favoritesRaw = combine(favoriteQuery.debounce(200), acctTick) { q, _ -> q }.flatMapLatest { q ->
@@ -202,10 +214,14 @@ class NotesViewModel @Inject constructor(
             }
             sortNotes(filtered, sort)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun toggleFavorite(id: Long) = viewModelScope.launch { runCatching { repo.toggleFavorite(id) } }
+    fun toggleFavorite(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.toggleFavorite(id) } }
     fun unfavoriteMany(ids: Set<Long>) = viewModelScope.launch { repo.unfavoriteMany(ids) }
     // تكرار ملاحظة — يرجع معرف النسخة (تُفتح بعده مباشرة من App)
-    suspend fun duplicateNow(id: Long, newTitle: String): Long = repo.duplicate(id, newTitle)
+    // المرحلة 1ج: بلا Pro يُرجع -1 (المنادي duplicateAndOpen يعالجها بفرع else الآمن) — بلا رمي عمدًا.
+    suspend fun duplicateNow(id: Long, newTitle: String): Long {
+        if (!proNow()) return -1L
+        return repo.duplicate(id, newTitle)
+    }
     // التذكير — حفظ/مسح + إعادة جدولة الكل (إقلاع/استعادة)
     fun setReminder(id: Long, spec: com.nota.notes.data.ReminderSpec) = viewModelScope.launch { runCatching { repo.setReminder(id, spec) } }
     fun setReminder(id: Long, at: Long, repeat: String, beforeMin: Long) = setReminder(id, com.nota.notes.data.ReminderSpec(at = at, repeat = repeat, beforeMin = beforeMin))

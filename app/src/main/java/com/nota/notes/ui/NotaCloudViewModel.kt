@@ -3,6 +3,7 @@ package com.nota.notes.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nota.notes.billing.EntitlementsRepo
 import com.nota.notes.data.AccountStore
 import com.nota.notes.data.BackupCodec
 import com.nota.notes.data.CloudHttpException
@@ -31,6 +32,9 @@ class NotaCloudViewModel @Inject constructor(
     private val accounts: AccountStore,
     private val cloudKeys: com.nota.notes.security.CloudKeyStore,
     private val settings: com.nota.notes.data.SettingsStore,
+    // المرحلة 1ج: فحص Pro داخل الـ VM (defense in depth) — من نفس مصادر premiumVm.isPro().
+    // بلا حقن PremiumViewModel عمدًا: نسخة VM منفصلة ستملك trialActive=false دائمًا فتكسر التجربة.
+    private val entitlements: EntitlementsRepo,
     @ApplicationContext private val ctx: Context
 ) : ViewModel() {
     private val _quota = MutableStateFlow<CloudQuota?>(null)
@@ -65,6 +69,13 @@ class NotaCloudViewModel @Inject constructor(
         }
     }
 
+    // المرحلة 1ج: نسخة متزامنة-المصادر من premiumVm.isPro() — تجربة نشطة أو pro من الكاش.
+    // الكاش مربوط بالحساب (FREE بلا حساب) فيطابق تعريف البوابة الموحدة.
+    private suspend fun isProNow(): Boolean {
+        if (com.nota.notes.data.SettingsStore.isTrialActive(settings.trialStart.first())) return true
+        return entitlements.cached.first().pro
+    }
+
     // النسخ لسحابة نوتا: النص دائمًا + الوسائط (صور/صوت/رسوم/خلفيات) للمشتركين فقط —
     // الوسائط مشفرة بمفتاح المستخدم الخاص وحده (CloudKeyStore) — صفر معرفة.
     // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
@@ -76,6 +87,13 @@ class NotaCloudViewModel @Inject constructor(
             _message.value = null
             _detail.value = null
             try {
+                // المرحلة 1ج: الوسائط للمشتركين فقط — فحص داخل الـ VM لا في الـ UI فقط.
+                // Trial يفتح الكل (T3 مغلق): isProNow() يشمل التجربة النشطة.
+                if (allowMedia && !isProNow()) {
+                    _message.value = "nc-err-pro-required"
+                    _detail.value = "pro:required:media"
+                    return@launch
+                }
                 val acct = accounts.currentAccountId() ?: throw IllegalStateException("no-account")
                 val key = withContext(Dispatchers.IO) { cloudKeys.getEntropy() }
                 if (key == null) {
@@ -236,6 +254,7 @@ class NotaCloudViewModel @Inject constructor(
     }
 
     fun restoreNow() {
+        // المرحلة 1ج — قرار صريح: بلا فحص Pro عمدًا — المستخدم يستعيد بياناته دائمًا حتى بعد downgrade.
         if (_working.value) return
         viewModelScope.launch {
             _working.value = true

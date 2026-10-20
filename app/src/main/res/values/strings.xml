@@ -590,6 +590,7 @@
     <string name="ncloud_ok_backup">Backed up to Nota Cloud</string>
     <string name="ncloud_ok_restore">Restored %1$d, skipped %2$d</string>
     <string name="ncloud_err_quota">Quota full — upgrade your plan for more space</string>
+    <string name="ncloud_err_pro_required">رفع الوسائط للسحابة ميزة Pro — التجربة المجانية تفتحها، والحساب المجاني يقتصر على النص</string>
     <string name="ncloud_err_nobackup">No Nota Cloud backup yet</string>
     <string name="ncloud_err_auth">انتهت جلسة الدخول على هذا الجهاز — سجّل الخروج ثم ادخل بحساب جوجل نفسه لتعود بيانات الاشتراك والحصة</string>
     <string name="ncloud_failed">Operation failed — check network and retry</string>

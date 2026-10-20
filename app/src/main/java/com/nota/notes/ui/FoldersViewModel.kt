@@ -2,6 +2,7 @@ package com.nota.notes.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nota.notes.billing.EntitlementsRepo
 import com.nota.notes.data.Folder
 import com.nota.notes.data.FoldersRepository
 import com.nota.notes.data.Note
@@ -12,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -22,7 +24,10 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class FoldersViewModel @Inject constructor(
     private val repo: FoldersRepository,
-    private val settings: SettingsStore
+    private val settings: SettingsStore,
+    // المرحلة 1ج: فحص Pro داخل الـ VM (defense in depth) — من نفس مصادر premiumVm.isPro().
+    // بلا حقن PremiumViewModel عمدًا: نسخة VM منفصلة ستملك trialActive=false دائمًا فتكسر التجربة.
+    private val entitlements: EntitlementsRepo
 ) : ViewModel() {
     // فصل الحسابات: المجلدات والعدادات تُعاد مع تغيّر الحساب — كالملاحظات تمامًا
     private val acctTick = repo.accountChanges()
@@ -81,8 +86,15 @@ class FoldersViewModel @Inject constructor(
     fun markUnlocked(id: Long) { _unlockedIds.value = _unlockedIds.value + id }
     fun relockAll() { _unlockedIds.value = emptySet() }
 
+    // المرحلة 1ج: نسخة متزامنة-المصادر من premiumVm.isPro() — الـ UI يمنع أصلًا (proLock).
+    private suspend fun proNow(): Boolean {
+        if (com.nota.notes.data.SettingsStore.isTrialActive(settings.trialStart.first())) return true
+        return entitlements.cached.first().pro
+    }
+
     fun moveNote(noteId: Long, folderId: Long?) {
-        viewModelScope.launch { runCatching { repo.moveNote(noteId, folderId) } }
+        // المرحلة 1ج: النقل للمجلدات مدفوع — فحص داخل الـ VM لا في الـ UI فقط.
+        viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.moveNote(noteId, folderId) } }
     }
 
     // حذف المجلد يمسح الافتراضي إن كان هو — بلا id معلق
