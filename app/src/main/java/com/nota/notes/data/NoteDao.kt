@@ -50,6 +50,10 @@ interface NoteDao {
     @Query("SELECT category AS name, COUNT(*) AS count FROM notes WHERE category IS NOT NULL AND category != '' AND deletedAt IS NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) GROUP BY category")
     fun categoryCounts(acct: String?): Flow<List<CategoryCount>>
 
+    // P3-D2: ترحيل الأسماء المعتمة لملفات الخلفيات (يرجع عدد الصفوف)
+    @Query("UPDATE notes SET background = :newName WHERE background = :oldName")
+    suspend fun renameBackground(oldName: String, newName: String): Int
+
     @Query("UPDATE notes SET category = :newName WHERE category = :old AND (ownerAccountId IS NULL OR ownerAccountId = :acct)")
     suspend fun renameCategory(acct: String?, old: String, newName: String)
 

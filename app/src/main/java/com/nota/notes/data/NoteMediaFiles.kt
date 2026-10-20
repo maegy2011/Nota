@@ -33,7 +33,7 @@ object NoteMediaFiles {
                 ?: return@runCatching null
             val orient = readExifRotation(ctx, uri)
             val fixed = if (orient != 0) rotate(bmp, orient) else bmp
-            val name = "img_${System.currentTimeMillis()}.jpg"
+            val name = OpaqueFileNames.random("jpg") // P3-D2: اسم معتم — بلا طابع زمني
             val bos = ByteArrayOutputStream()
             fixed.compress(Bitmap.CompressFormat.JPEG, 85, bos)
             if (!bmp.isRecycled) bmp.recycle()
@@ -93,7 +93,7 @@ object NoteMediaFiles {
             }.getOrDefault("bin")
             val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
             if (bytes.size > 25 * 1024 * 1024) return@runCatching null
-            val name = "file_${System.currentTimeMillis()}.$ext"
+            val name = OpaqueFileNames.random(ext) // P3-D2: اسم معتم — بلا طابع زمني
             try {
                 if (!PerFileMedia.writeNew(file(ctx, name), bytes)) MediaCrypto.encryptToFile(file(ctx, name), bytes)
             } finally {
@@ -128,7 +128,7 @@ object NoteMediaFiles {
 
     // ملف صوتي جديد للتسجيل (.m4a) — يُنشأ فارغًا ويُكتب بالمسجل مباشرة
     fun newAudioFile(ctx: Context): String {
-        val name = "rec_${System.currentTimeMillis()}.m4a"
+        val name = OpaqueFileNames.random("m4a") // P3-D2: اسم معتم — بلا طابع زمني
         runCatching { file(ctx, name).createNewFile() }
         return name
     }
@@ -136,7 +136,7 @@ object NoteMediaFiles {
     // حفظ لوحة رسم PNG **مشفرة** — من البت ماب النهائي بجودة كاملة
     suspend fun saveDrawing(ctx: Context, bmp: Bitmap): String? = withContext(Dispatchers.IO) {
         runCatching {
-            val name = "draw_${System.currentTimeMillis()}.png"
+            val name = OpaqueFileNames.random("png") // P3-D2: اسم معتم — بلا طابع زمني
             val bos = ByteArrayOutputStream()
             bmp.compress(Bitmap.CompressFormat.PNG, 100, bos)
             val bytes = bos.toByteArray()

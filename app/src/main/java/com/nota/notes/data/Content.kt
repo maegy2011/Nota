@@ -80,4 +80,8 @@ interface ContentDao {
 
     @Query("SELECT file FROM note_attachments WHERE noteId = :noteId")
     suspend fun filesOf(noteId: Long): List<String>
+
+    // P3-D2: ترحيل الأسماء المعتمة — يُحدّث مرجع الملف بعد إعادة تسميته على القرص (يرجع عدد الصفوف)
+    @Query("UPDATE note_attachments SET file = :newName WHERE file = :oldName")
+    suspend fun renameFile(oldName: String, newName: String): Int
 }

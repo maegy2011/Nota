@@ -33,7 +33,7 @@ object NoteBgFiles {
             val opts = BitmapFactory.Options().apply { inSampleSize = sampleFor(w, h, MAX_COPY_DIM) }
             val bmp = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
                 ?: return@runCatching null
-            val name = "bg_${System.currentTimeMillis()}.jpg"
+            val name = OpaqueFileNames.random("jpg") // P3-D2: اسم معتم — بلا طابع زمني
             val bos = ByteArrayOutputStream()
             bmp.compress(Bitmap.CompressFormat.JPEG, 85, bos)
             if (!bmp.isRecycled) bmp.recycle()
@@ -86,7 +86,7 @@ object NoteBgFiles {
                 val src = file(ctx, name)
                 if (!src.exists()) return@runCatching null
                 val plain = PerFileMedia.readAll(src) ?: return@runCatching null
-                val dst = "bg_${System.currentTimeMillis()}_copy.jpg"
+                val dst = OpaqueFileNames.random("jpg") // P3-D2: اسم معتم — بلا طابع زمني
                 try {
                     if (!PerFileMedia.writeNew(file(ctx, dst), plain)) MediaCrypto.encryptToFile(file(ctx, dst), plain)
                 } finally {

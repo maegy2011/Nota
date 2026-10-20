@@ -55,8 +55,43 @@ class NotesRepository(
         }
     }
     suspend fun restoreMany(ids: Set<Long>) = withContext(Dispatchers.IO) { ids.forEach { restoreOne(it) } }
+    // P3-D2: ترحيل أسماء legacy → معتمة (idempotent) — الملف + جانبي .key معًا، ثم مراجع DB.
+    // اليتيم (بلا مرجع DB) يُعتَّم أيضًا بلا ضرر. كل خطوة محمية — الفشل لا يُسقط الصيانة.
+    suspend fun migrateMediaFilenames() = withContext(Dispatchers.IO) {
+        runCatching {
+            val content = holder.get().content()
+            renameDirFiles(NoteMediaFiles.dir(appCtx)) { old, new ->
+                runCatching { content.renameFile(old, new) }
+                Unit
+            }
+            renameDirFiles(NoteBgFiles.dir(appCtx)) { old, new ->
+                runCatching { holder.dao().renameBackground(old, new) }
+                Unit
+            }
+        }
+    }
+
+    private suspend fun renameDirFiles(dir: java.io.File, updateRef: suspend (String, String) -> Unit) {
+        val files = dir.listFiles()?.filter { it.isFile && OpaqueFileNames.isLegacy(it.name) } ?: return
+        files.forEach { f ->
+            runCatching {
+                val newName = OpaqueFileNames.random(OpaqueFileNames.extOf(f.name))
+                val newFile = java.io.File(dir, newName)
+                // المفتاح الجانبي يُعاد تسميته مع ملفه — وإلا يُيتم الملف الجديد (غير قابل للفك)
+                val kf = com.nota.notes.security.PerFileMedia.keyFileFor(f)
+                val hasKey = kf.exists()
+                if (!f.renameTo(newFile)) return@runCatching
+                if (hasKey) runCatching {
+                    kf.renameTo(com.nota.notes.security.PerFileMedia.keyFileFor(newFile))
+                }
+                updateRef(f.name, newName)
+            }
+        }
+    }
+
     // تطهير المنتهية (30 يومًا): حذف نهائي كامل (ملفات + منبهات) — تُستدعى عند فتح القفل
     suspend fun purgeTrash(): Int = withContext(Dispatchers.IO) {
+        runCatching { migrateMediaFilenames() } // P3-D2: صيانة فتح القفل تشمل تعتيم الأسماء القديمة
         val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
         val ids = holder.dao().expiredIds(cutoff, acct())
         ids.forEach { hardDelete(it) }
