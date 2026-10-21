@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,6 +36,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.RadioButton
@@ -146,6 +152,27 @@ fun BackupScreen(
         }
     }
     val fmt = remember { SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()) }
+    // P3-3د: snackbar تراجع 10 ثوانٍ (Long) بعد كل استعادة ناجحة — الزر يبقى في سجل الاستعادة بعدها.
+    val ctxRoot = LocalContext.current
+    val snack = remember { SnackbarHostState() }
+    val rootScope = rememberCoroutineScope()
+    val onRestored: (String, Int) -> Unit = { src, added ->
+        rootScope.launch {
+            val rec = withContext(Dispatchers.IO) { notesVm.restoreLogOnce().firstOrNull { it.src == src } }
+            if (rec != null) {
+                val res = snack.showSnackbar(
+                    message = ctxRoot.getString(R.string.restore_undo_snackbar_fmt, added),
+                    actionLabel = ctxRoot.getString(R.string.restore_undo_action),
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long
+                )
+                if (res == SnackbarResult.ActionPerformed) {
+                    withContext(Dispatchers.IO) { notesVm.undoRestore(rec.id) }
+                    authVm.touch()
+                }
+            }
+        }
+    }
     // P3-C2: طي الطرق + روابط سفلية + شيت الباقات
     var showLog by remember { mutableStateOf(false) }
     var driveAdv by remember { mutableStateOf(false) }
@@ -153,6 +180,7 @@ fun BackupScreen(
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Scaffold(
             // داخل DrawerShell: الهيدر المثبت من الغلاف — بلا شريط داخلي (27 سبتمبر 2026)
+            snackbarHost = { SnackbarHost(snack) },
             contentWindowInsets = WindowInsets(0)
         ) { pad ->
             Column(
@@ -226,16 +254,16 @@ fun BackupScreen(
                         driveSizeText = driveSizeText, cloudSizeText = cloudSizeText
                     )
                     MethodSection(stringResource(R.string.bk_method_drive)) {
-                        DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv })
+                        DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv }, onRestored = onRestored)
                     }
                     MethodSection(stringResource(R.string.bk_method_ncloud)) {
-                        NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked)
+                        NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked, onRestored = onRestored)
                         if (ncPro) {
                             CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
                         }
                     }
                     MethodSection(stringResource(R.string.bk_method_file)) {
-                        FileBackupCard(notesVm, authVm, fmt, locked, onLocked)
+                        FileBackupCard(notesVm, authVm, fmt, locked, onLocked, onRestored = onRestored)
                     }
                     // روابط سفلية: سجل الاستعادة + إعدادات Drive المتقدمة
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -338,7 +366,9 @@ private fun DriveCard(
     onLocked: () -> Unit = {},
     // P3-C2: التكرار/عدد النسخ/كلمة المرور مطوية في «إعدادات متقدمة»
     advOpen: Boolean = false,
-    onAdvToggle: () -> Unit = {}
+    onAdvToggle: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
     // Phase 2ج/2د: حالة العملية + تحذير الحجم للبانر والحوار.
@@ -352,6 +382,15 @@ private fun DriveCard(
             onConfirm = { vm.acceptSizeWarn() },
             onDismiss = { vm.dismissSizeWarn() }
         )
+    }
+    // P3-3د: راقب رسالة النجاح — اعرض snackbar مرة واحدة لكل دمج.
+    LaunchedEffect(msg) {
+        val mm = msg
+        if (mm?.startsWith("ok-restore:") == true) {
+            val added = mm.removePrefix("ok-restore:").split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            if (added > 0) onRestored("drive", added)
+        }
+    }
     }
     val keep by vm.keepCount.collectAsStateWithLifecycle()
     val cloudPreview by vm.preview.collectAsStateWithLifecycle()
@@ -597,7 +636,10 @@ private fun DriveCard(
         )
     }
     // معاينة نسخة Drive قبل الدمج — نفس حوار نسخة الملف + تحذير القدم (27 سبتمبر 2026)
+    // P3-3ج: اختيار جزئي — checkbox لكل ملاحظة (الكل محددة افتراضيًا).
     cloudPreview?.let { pv ->
+        val pvNotes = remember(pv) { vm.previewNotes() }
+        var sel by remember(pv) { mutableStateOf(pvNotes.map { it.id }.toSet()) }
         AlertDialog(
             onDismissRequest = { vm.clearPreview() },
             title = { Text(stringResource(R.string.bk_preview_title)) },
@@ -618,10 +660,18 @@ private fun DriveCard(
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                    if (pvNotes.isNotEmpty()) {
+                        BackupNoteSelectionList(
+                            notes = pvNotes, selected = sel,
+                            onToggle = { id -> sel = if (id in sel) sel - id else sel + id },
+                            onSelectAll = { sel = pvNotes.map { it.id }.toSet() },
+                            onDeselectAll = { sel = emptySet() }
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { vm.confirmRestore() }) {
+                TextButton(onClick = { val s = sel; vm.confirmRestore(s) }) {
                     Text(stringResource(R.string.bk_preview_confirm))
                 }
             },
@@ -648,7 +698,9 @@ private fun NotaCloudCard(
     fmt: SimpleDateFormat,
     clipboard: androidx.compose.ui.platform.ClipboardManager,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
     // Phase 2ج/2د: حالة العملية + تحذير الحصة للبانر والحوار.
@@ -662,6 +714,15 @@ private fun NotaCloudCard(
             onConfirm = { ncvm.acceptQuotaWarn() },
             onDismiss = { ncvm.dismissQuotaWarn() }
         )
+    }
+    // P3-3د: راقب رسالة النجاح — اعرض snackbar مرة واحدة لكل دمج.
+    LaunchedEffect(ncMsg) {
+        val mm = ncMsg
+        if (mm?.startsWith("nc-ok-restore:") == true) {
+            val added = mm.removePrefix("nc-ok-restore:").split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            if (added > 0) onRestored("ncloud", added)
+        }
+    }
     }
     SectionCard(stringResource(R.string.ncloud_title), locked = locked) {
         Text(
@@ -1054,6 +1115,53 @@ private fun CloudKeyCard(
         }
     }
 }
+// P3-3ج: قائمة اختيار الملاحظات للاستعادة الجزئية — checkbox لكل ملاحظة + الكل/إلغاء + عدّاد.
+@Composable
+private fun BackupNoteSelectionList(
+    notes: List<com.nota.notes.data.BackupNote>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onDeselectAll: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.restore_selected_fmt, selected.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onSelectAll) { Text(stringResource(R.string.restore_select_all)) }
+            TextButton(onClick = onDeselectAll) { Text(stringResource(R.string.restore_deselect_all)) }
+        }
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+        ) {
+            notes.forEach { n ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onToggle(n.id) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = n.id in selected, onCheckedChange = { onToggle(n.id) })
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            n.title.ifBlank { "—" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
+                        )
+                        Text(
+                            n.body.take(60),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 // 5) سجل عمليات الاستعادة: كل دمج (وقته/مصدره/عدده) + تراجع بالنقل للسلة — قابل للاستعادة 30 يومًا (27 سبتمبر 2026)
 @Composable
 private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {}) {
@@ -1062,6 +1170,8 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
     val log by vm.restoreLog.collectAsStateWithLifecycle(initialValue = emptyList())
     var undoMsg by remember { mutableStateOf<String?>(null) }
     var undoBusy by remember { mutableStateOf(false) }
+    // P3-3ب: حالة حل التعارضات (تمنع النقر المزدوج أثناء الكتابة).
+    var resolving by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.bk_log_title), locked = locked) {
         if (log.isEmpty()) {
             Text(
@@ -1112,6 +1222,90 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                         ) { Text(stringResource(R.string.bk_undo)) }
                     }
                 }
+                // P3-3ب: بطاقة التعارضات — الافتراضي المحفوظ (محلي) + قرار المستخدم لكل تعارض.
+                if (rec.conflicts.isNotEmpty() && !rec.undone) {
+                    var showConflicts by remember(rec.id) { mutableStateOf(false) }
+                    TextButton(
+                        onClick = { showConflicts = !showConflicts },
+                        enabled = !resolving && !locked,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.restore_conflicts_fmt, rec.conflicts.size))
+                    }
+                    if (showConflicts) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                stringResource(R.string.conflict_apply_all),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        resolving = true
+                                        rec.conflicts.forEach { c -> withContext(Dispatchers.IO) { vm.resolveKeepLocal(rec.id, c.id) } }
+                                        resolving = false; authVm.touch()
+                                    }
+                                },
+                                enabled = !resolving && !locked
+                            ) { Text(stringResource(R.string.conflict_keep_local)) }
+                        }
+                        rec.conflicts.forEach { c ->
+                            Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(
+                                    stringResource(
+                                        R.string.conflict_detail_fmt,
+                                        c.localTitle.ifBlank { "—" },
+                                        c.remoteTitle.ifBlank { "—" }
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    fmt.format(java.util.Date(c.localUpdatedAt)) + " ← → " + fmt.format(java.util.Date(c.remoteUpdatedAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveKeepLocal(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_keep_local)) }
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveTakeRemote(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_take_remote)) }
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveKeepBoth(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_keep_both)) }
+                                }
+                            }
+                        }
+                    }
+                }
                 HorizontalDivider(Modifier.padding(vertical = 2.dp))
             }
         }
@@ -1158,7 +1352,9 @@ private fun PasswordStrengthIndicator(level: Int) {
 }
 // 4) ملف .nota المشفر بكلمة مرور: تصدير/مشاركة + استعادة بالدمج — نُقل من الإعدادات المتقدمة (قرار 23 سبتمبر 2026)
 @Composable
-private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {}) {
+private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var expPw by remember { mutableStateOf("") }
@@ -1191,12 +1387,15 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
         }
     }
 
-    fun restoreJson(json: String, tmp: File?) {
+    // P3-3ج: selectedIds = null تعني الكل؛ غيرها تُستعاد المحددة فقط.
+    fun restoreJson(json: String, tmp: File?, selectedIds: Set<String>? = null) {
         scope.launch {
             busy = true
             try {
-                val r = withContext(Dispatchers.IO) { vm.restoreBackupJson(json, "file") }
+                val r = withContext(Dispatchers.IO) { vm.restoreBackupJson(json, "file", selectedIds) }
                 resMsg = ctx.getString(R.string.bk_restored_fmt, r.added, r.skipped)
+                // P3-3د: snackbar تراجع 10 ثوانٍ (الزر يبقى في سجل الاستعادة بعدها).
+                if (r.added > 0) onRestored("file", r.added)
                 resPw = ""; pendingRestore = null
             } catch (e: Exception) {
                 resMsg = ctx.getString(R.string.bk_file_bad)
@@ -1375,7 +1574,10 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             ) { Text(stringResource(R.string.bk_res_btn)) }
         }
         // حوار معاينة النسخة: العدد والتاريخ ثم دمج مؤكد — بلا مسح لشيء (27 سبتمبر 2026)
+        // P3-3ج: اختيار جزئي — checkbox لكل ملاحظة (الكل محددة افتراضيًا).
         previewRestore?.let { (json, tmp, meta) ->
+            val pvNotes = remember(json) { vm.previewNotes(json) }
+            var sel by remember(json) { mutableStateOf(pvNotes.map { it.id }.toSet()) }
             AlertDialog(
                 onDismissRequest = { tmp?.delete(); previewRestore = null },
                 title = { Text(stringResource(R.string.bk_preview_title)) },
@@ -1396,10 +1598,18 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
+                        if (pvNotes.isNotEmpty()) {
+                            BackupNoteSelectionList(
+                                notes = pvNotes, selected = sel,
+                                onToggle = { id -> sel = if (id in sel) sel - id else sel + id },
+                                onSelectAll = { sel = pvNotes.map { it.id }.toSet() },
+                                onDeselectAll = { sel = emptySet() }
+                            )
+                        }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { val j = json; val t = tmp; previewRestore = null; restoreJson(j, t) }) {
+                    TextButton(onClick = { val j = json; val t = tmp; val s = sel; previewRestore = null; restoreJson(j, t, s) }) {
                         Text(stringResource(R.string.bk_preview_confirm))
                     }
                 },

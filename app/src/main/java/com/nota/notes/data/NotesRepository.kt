@@ -276,7 +276,8 @@ class NotesRepository(
         // النسخ للدرايف بنطاق الحساب الحالي فقط — ملاحظات حساب آخر لا تُرفع أبدًا
         // النسخة الكاملة تشمل السلة (27 سبتمبر 2026) — deletedAt يُحفظ ويُستعاد
         dao.backupAllOnce(acct()).map { n ->
-            BackupNote(title = n.title, body = n.body, createdAt = n.createdAt,
+            // P3-3أ (format v4): id الثابت = نص Room ID — يُستخدم مفتاح دمج عند الاستعادة.
+            BackupNote(id = n.id.toString(), title = n.title, body = n.body, createdAt = n.createdAt,
                 updatedAt = n.updatedAt, color = n.color, archivedAt = n.archivedAt, pinned = n.pinned,
                 folder = n.folderId?.let { folderNames[it] },
                 deletedAt = n.deletedAt,
@@ -302,13 +303,47 @@ class NotesRepository(
         n
     }
 
-    // الاستعادة بالدمج: المكرر (نفس العنوان+النص+تاريخ الإنشاء) يُتخطى، والجديد يُدرج بهوية جديدة —
-    // يرجع (مضافة، متخطاة). الأرشيف يُستعاد مؤرشفًا لأنه محفوظ في النسخة
+    // الاستعادة بالدمج (P3-3أ/3ب): مفتاح الدمج هو id الثابت (v4) — نفس id بمحتوى مختلف = تعارض
+    // (احتفظ بالمحلي + سجّل — قرار محمد). بلا id مطابق يُستخدم الثلاثي القديم كاحتياط (توافق v2/v3).
+    // يرجع (مضافة، متخطاة، تعارضات). الأرشيف يُستعاد مؤرشفًا لأنه محفوظ في النسخة
     // نتيجة الدمج — addedIds للتراجع الآمن (نقل للسلة لا حذف) — سجل الاستعادة (27 سبتمبر 2026)
-    data class RestoreResult(val added: Int, val skipped: Int, val addedIds: List<Long>)
-    suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList()): RestoreResult = withContext(Dispatchers.IO) {
+    data class RestoreResult(val added: Int, val skipped: Int, val addedIds: List<Long>, val conflicts: List<BackupConflict> = emptyList())
+    suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList(), selectedIds: Set<String>? = null): RestoreResult = withContext(Dispatchers.IO) {
         val dao = holder.dao()
-        // مجلدات النسخة تُعاد إنشاؤها إن غابت (v3) — بنطاق الحساب الحالي — ثم تُنسب إليها الملاحظات
+        val folderIds = ensureFolders(folders)
+        // كشف المكرر بنطاق الحساب الحالي — يشمل السلة فلا تتكرر مستعادة محذوفة
+        val current = dao.backupAllOnce(acct())
+        val byId = current.associateBy { it.id.toString() }
+        val have = current.map { Triple(it.title, it.body, it.createdAt) }.toMutableSet()
+        var added = 0; var skipped = 0
+        val addedIds = mutableListOf<Long>()
+        val conflicts = mutableListOf<BackupConflict>()
+        // P3-3ج: استعادة جزئية — null تعني الكل.
+        val list = if (selectedIds == null) items else items.filter { it.id in selectedIds }
+        list.forEach { b ->
+            // P3-3ب: نفس id موجود محليًا — قارن المحتوى (تعارض أم تطابق).
+            val local = byId[b.id]
+            if (local != null) {
+                val localAsBackup = BackupNote(id = b.id, title = local.title, body = local.body,
+                    createdAt = local.createdAt, updatedAt = local.updatedAt, color = local.color,
+                    archivedAt = local.archivedAt, pinned = local.pinned,
+                    folder = local.folderId?.let { fid -> folderIds.entries.find { it.value == fid }?.key })
+                if (BackupCodec.sameBackupContent(localAsBackup, b)) { skipped++; return@forEach }
+                // تعارض: احتفظ بالمحلي (بلا استبدال صامت) + سجّل للقرار اللاحق.
+                conflicts.add(BackupConflict(id = b.id, localTitle = local.title, remoteTitle = b.title,
+                    localUpdatedAt = local.updatedAt, remoteUpdatedAt = b.updatedAt, remote = b))
+                skipped++; return@forEach
+            }
+            if (have.contains(Triple(b.title, b.body, b.createdAt))) { skipped++; return@forEach }
+            addedIds.add(insertBackupNote(b, folderIds))
+            have.add(Triple(b.title, b.body, b.createdAt))
+            added++
+        }
+        RestoreResult(added, skipped, addedIds, conflicts)
+    }
+
+    // مجلدات النسخة تُعاد إنشاؤها إن غابت (v3) — بنطاق الحساب الحالي — ثم تُنسب إليها الملاحظات
+    private suspend fun ensureFolders(folders: List<BackupFolder>): Map<String, Long> {
         val folderIds = mutableMapOf<String, Long>()
         runCatching {
             val fdao = holder.folderDao()
@@ -319,49 +354,94 @@ class NotesRepository(
                     folderIds[bf.name] = fdao.insert(Folder(name = bf.name, color = bf.color, ownerAccountId = a))
             }
         }
-        // كشف المكرر بنطاق الحساب الحالي — يشمل السلة فلا تتكرر مستعادة محذوفة
-        val have = dao.backupAllOnce(acct()).map { Triple(it.title, it.body, it.createdAt) }.toSet()
-        var added = 0; var skipped = 0
-        val addedIds = mutableListOf<Long>()
-        items.forEach { b ->
-            if (have.contains(Triple(b.title, b.body, b.createdAt))) { skipped++; return@forEach }
-            // المستعادة تُنسب للحساب الحالي فورًا — فلا تظهر لحساب آخر على الجهاز
-            // وتعود لمجلدها بالاسم — الغائب أُعيد إنشاؤه أعلاه (v3)
-            val newId = dao.insert(Note(title = b.title, body = b.body, createdAt = b.createdAt,
-                updatedAt = b.updatedAt, color = b.color, archivedAt = b.archivedAt, pinned = b.pinned,
-                deletedAt = b.deletedAt,
-                geoLat = b.geoLat, geoLng = b.geoLng, geoRadiusM = b.geoRadiusM, geoName = b.geoName,
-                folderId = b.folder?.let { folderIds[it] },
-                locked = b.locked, background = b.background, favorite = b.favorite, category = b.category,
-                reminderAt = b.reminderAt, reminderRepeat = b.reminderRepeat, reminderBeforeMin = b.reminderBeforeMin,
-                latitude = b.latitude, longitude = b.longitude,
-                repeatInterval = b.repeatInterval, repeatDays = b.repeatDays, repeatMonthMode = b.repeatMonthMode,
-                repeatEnd = b.repeatEnd, repeatEndValue = b.repeatEndValue, ownerAccountId = acct()))
-            if (b.tags.isNotEmpty()) runCatching { holder.tagDao().setTags(newId, b.tags) }
-            // المهام تُستعاد بنفس الترتيب — والمرفقات تُسجَّل متى وُجدت ملفاتها (نفس الجهاز)
-            if (b.tasks.isNotEmpty()) runCatching {
-                b.tasks.forEachIndexed { i, t ->
-                    holder.contentDao().insertTask(ChecklistItem(noteId = newId, text = t.text, done = t.done, sort = i))
-                }
+        return folderIds
+    }
+
+    // إدراج ملاحظة نسخة واحدة (مسار مشترك: الدمج + "احتفظ بالاثنين") — يرجع Room ID الجديد.
+    private suspend fun insertBackupNote(b: BackupNote, folderIds: Map<String, Long>): Long {
+        val dao = holder.dao()
+        // المستعادة تُنسب للحساب الحالي فورًا — فلا تظهر لحساب آخر على الجهاز
+        // وتعود لمجلدها بالاسم — الغائب أُعيد إنشاؤه أعلاه (v3)
+        val newId = dao.insert(Note(title = b.title, body = b.body, createdAt = b.createdAt,
+            updatedAt = b.updatedAt, color = b.color, archivedAt = b.archivedAt, pinned = b.pinned,
+            deletedAt = b.deletedAt,
+            geoLat = b.geoLat, geoLng = b.geoLng, geoRadiusM = b.geoRadiusM, geoName = b.geoName,
+            folderId = b.folder?.let { folderIds[it] },
+            locked = b.locked, background = b.background, favorite = b.favorite, category = b.category,
+            reminderAt = b.reminderAt, reminderRepeat = b.reminderRepeat, reminderBeforeMin = b.reminderBeforeMin,
+            latitude = b.latitude, longitude = b.longitude,
+            repeatInterval = b.repeatInterval, repeatDays = b.repeatDays, repeatMonthMode = b.repeatMonthMode,
+            repeatEnd = b.repeatEnd, repeatEndValue = b.repeatEndValue, ownerAccountId = acct()))
+        if (b.tags.isNotEmpty()) runCatching { holder.tagDao().setTags(newId, b.tags) }
+        // المهام تُستعاد بنفس الترتيب — والمرفقات تُسجَّل متى وُجدت ملفاتها (نفس الجهاز)
+        if (b.tasks.isNotEmpty()) runCatching {
+            b.tasks.forEachIndexed { i, t ->
+                holder.contentDao().insertTask(ChecklistItem(noteId = newId, text = t.text, done = t.done, sort = i))
             }
-            if (b.attachments.isNotEmpty()) runCatching {
-                b.attachments.filter { NoteMediaFiles.file(appCtx, it.file).exists() }.forEach { a ->
-                    holder.contentDao().insertAttachment(NoteAttachment(noteId = newId, file = a.file, kind = a.kind))
-                }
-            }
-            // التذكير المستقبلي يُجدوَل من جديد — الماضي يُترك سجلًا بلا منبه
-            // المحذوفة (سلة) لا تُجدوَل — منبهها أُلغي يوم حذفها
-            if (b.deletedAt == null) {
-                if (b.reminderAt != null && b.reminderAt > System.currentTimeMillis())
-                    runCatching { com.nota.notes.reminder.ReminderScheduler.schedule(appCtx, newId, b.reminderAt, b.reminderBeforeMin) }
-                // السياج يُعاد تسجيله — بلا إذن موقع يُتجاهل بصمت ويُطلب عند الاستخدام
-                if (b.geoLat != null && b.geoLng != null)
-                    runCatching { com.nota.notes.geo.GeoScheduler.add(appCtx, newId, b.geoLat, b.geoLng, b.geoRadiusM) }
-            }
-            addedIds.add(newId)
-            added++
         }
-        RestoreResult(added, skipped, addedIds)
+        if (b.attachments.isNotEmpty()) runCatching {
+            b.attachments.filter { NoteMediaFiles.file(appCtx, it.file).exists() }.forEach { a ->
+                holder.contentDao().insertAttachment(NoteAttachment(noteId = newId, file = a.file, kind = a.kind))
+            }
+        }
+        // التذكير المستقبلي يُجدوَل من جديد — الماضي يُترك سجلًا بلا منبه
+        // المحذوفة (سلة) لا تُجدوَل — منبهها أُلغي يوم حذفها
+        if (b.deletedAt == null) {
+            if (b.reminderAt != null && b.reminderAt > System.currentTimeMillis())
+                runCatching { com.nota.notes.reminder.ReminderScheduler.schedule(appCtx, newId, b.reminderAt, b.reminderBeforeMin) }
+            // السياج يُعاد تسجيله — بلا إذن موقع يُتجاهل بصمت ويُطلب عند الاستخدام
+            if (b.geoLat != null && b.geoLng != null)
+                runCatching { com.nota.notes.geo.GeoScheduler.add(appCtx, newId, b.geoLat, b.geoLng, b.geoRadiusM) }
+        }
+        return newId
+    }
+
+    // P3-3ب: "خذ من النسخة" — تحديث الملاحظة المحلية (نفس id) بمحتوى النسخة. يرجع false إن غابت.
+    suspend fun takeRemote(remote: BackupNote): Boolean = withContext(Dispatchers.IO) {
+        val dao = holder.dao()
+        val cur = remote.id.toLongOrNull()?.let { dao.byId(it) } ?: return@withContext false
+        // نطاق الحساب: لا تُحدَّث ملاحظة حساب آخر.
+        val a = acct()
+        if (!(cur.ownerAccountId == null || cur.ownerAccountId == a)) return@withContext false
+        val folderIds = ensureFolders(emptyList())
+        val newFolderId = remote.folder?.let { name ->
+            folderIds[name] ?: runCatching {
+                holder.folderDao().insert(Folder(name = name, color = 0, ownerAccountId = a))
+            }.getOrNull()
+        }
+        dao.update(cur.copy(title = remote.title, body = remote.body, updatedAt = remote.updatedAt,
+            color = remote.color, archivedAt = remote.archivedAt, pinned = remote.pinned,
+            folderId = newFolderId ?: cur.folderId,
+            locked = remote.locked, background = remote.background, favorite = remote.favorite,
+            category = remote.category, reminderAt = remote.reminderAt,
+            reminderRepeat = remote.reminderRepeat, reminderBeforeMin = remote.reminderBeforeMin,
+            latitude = remote.latitude, longitude = remote.longitude,
+            repeatInterval = remote.repeatInterval, repeatDays = remote.repeatDays,
+            repeatMonthMode = remote.repeatMonthMode, repeatEnd = remote.repeatEnd,
+            repeatEndValue = remote.repeatEndValue,
+            geoLat = remote.geoLat, geoLng = remote.geoLng,
+            geoRadiusM = remote.geoRadiusM, geoName = remote.geoName))
+        runCatching { holder.tagDao().setTags(cur.id, remote.tags) }
+        // المهام: استبدال كامل بنفس الترتيب.
+        runCatching {
+            holder.contentDao().tasksOf(cur.id).forEach { runCatching { holder.contentDao().deleteTask(it.id) } }
+            remote.tasks.forEachIndexed { i, t ->
+                holder.contentDao().insertTask(ChecklistItem(noteId = cur.id, text = t.text, done = t.done, sort = i))
+            }
+        }
+        // المرفقات: استبدال بالموجودة ملفاتها فقط (device-local — الغائب يُتجاهل).
+        runCatching {
+            holder.contentDao().attachmentsOf(cur.id).forEach { runCatching { holder.contentDao().deleteAttachment(it.id) } }
+            remote.attachments.filter { NoteMediaFiles.file(appCtx, it.file).exists() }.forEach { at ->
+                holder.contentDao().insertAttachment(NoteAttachment(noteId = cur.id, file = at.file, kind = at.kind))
+            }
+        }
+        true
+    }
+
+    // P3-3ب: "احتفظ بالاثنين" — إدراج النسخة كملاحظة جديدة. يرجع Room ID الجديد.
+    suspend fun keepBoth(remote: BackupNote): Long = withContext(Dispatchers.IO) {
+        insertBackupNote(remote, ensureFolders(emptyList()))
     }
 
     // سجل الاستعادة عبر مخزن الإعدادات — تمرير للواجهات (27 سبتمبر 2026)
@@ -369,6 +449,8 @@ class NotesRepository(
     suspend fun restoreLogOnce(): List<RestoreRecord> = shredPrefs.restoreLog.first()
     suspend fun logRestore(r: RestoreRecord) = shredPrefs.logRestore(r)
     suspend fun markRestoreUndone(id: Long) = shredPrefs.markRestoreUndone(id)
+    // P3-3ب: تحديث سجل (حل تعارض) — يُمرَّر للمخزن.
+    suspend fun replaceRestore(r: RestoreRecord) = shredPrefs.replaceRestore(r)
 
     // التراجع عن دمج: المضافة تُنقل للسلة (قابلة للاستعادة 30 يومًا) — لا حذف نهائي أبدًا (27 سبتمبر 2026)
     suspend fun undoRestore(ids: List<Long>): Int = withContext(Dispatchers.IO) {

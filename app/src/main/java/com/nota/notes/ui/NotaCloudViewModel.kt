@@ -360,7 +360,7 @@ class NotaCloudViewModel @Inject constructor(
                 }
                 val r = repo.restoreMerge(decoded)
                 runCatching {
-                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "ncloud", added = r.added, skipped = r.skipped, addedIds = r.addedIds))
+                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "ncloud", added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
                 }
                 runCatching { ReminderScheduler.rescheduleAll(ctx) }
                 _message.value = "nc-ok-restore:${r.added}:${r.skipped}"

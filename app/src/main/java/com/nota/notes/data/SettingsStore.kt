@@ -189,6 +189,21 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
             prefs[K_RESTORE_LOG] = merged.toString()
         }
     }
+    // P3-3ب: استبدال سجل كامل (حل تعارض) — يُطابق بالـ id ويُحفظ الباقي كما هو.
+    suspend fun replaceRestore(rec: RestoreRecord) {
+        ctx.settingsStore.edit { prefs ->
+            val arr = runCatching { org.json.JSONArray(prefs[K_RESTORE_LOG] ?: "[]") }.getOrDefault(org.json.JSONArray())
+            val out = org.json.JSONArray()
+            var replaced = false
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optLong("id") == rec.id) { out.put(rec.toJson()); replaced = true }
+                else out.put(o)
+            }
+            if (!replaced) out.put(rec.toJson())
+            prefs[K_RESTORE_LOG] = out.toString()
+        }
+    }
     suspend fun markRestoreUndone(id: Long) {
         ctx.settingsStore.edit { prefs ->
             val arr = runCatching { org.json.JSONArray(prefs[K_RESTORE_LOG] ?: "[]") }.getOrDefault(org.json.JSONArray())
@@ -291,6 +306,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
 }
 
 // سجل عملية استعادة واحدة — المصدر file|drive|ncloud — ids المضافة للتراجع بالنقل للسلة
+// P3-3ب: conflicts تُحفظ مع السجل (20 كحد أقصى — الملاحظة البعيدة كاملة) لحلها لاحقًا من البطاقة.
 data class RestoreRecord(
     val id: Long = System.currentTimeMillis(),
     val at: Long = System.currentTimeMillis(),
@@ -298,18 +314,35 @@ data class RestoreRecord(
     val added: Int = 0,
     val skipped: Int = 0,
     val addedIds: List<Long> = emptyList(),
-    val undone: Boolean = false
+    val undone: Boolean = false,
+    val conflicts: List<BackupConflict> = emptyList()
 ) {
     fun toJson(): org.json.JSONObject = org.json.JSONObject()
         .put("id", id).put("at", at).put("src", src)
         .put("added", added).put("skipped", skipped).put("undone", undone)
         .put("ids", org.json.JSONArray(addedIds.take(2000)))
+        .put("conflicts", org.json.JSONArray(conflicts.take(20).map { c ->
+            org.json.JSONObject()
+                .put("id", c.id).put("localTitle", c.localTitle).put("remoteTitle", c.remoteTitle)
+                .put("localUpdatedAt", c.localUpdatedAt).put("remoteUpdatedAt", c.remoteUpdatedAt)
+                .put("remote", BackupCodec.noteJson(c.remote))
+        }))
     companion object {
         fun fromJson(o: org.json.JSONObject): RestoreRecord = RestoreRecord(
             id = o.optLong("id"), at = o.optLong("at"), src = o.optString("src", "file"),
             added = o.optInt("added"), skipped = o.optInt("skipped"),
             addedIds = o.optJSONArray("ids")?.let { a -> List(a.length()) { a.optLong(it) } } ?: emptyList(),
-            undone = o.optBoolean("undone", false)
+            undone = o.optBoolean("undone", false),
+            conflicts = o.optJSONArray("conflicts")?.let { a ->
+                List(a.length()) { i ->
+                    val c = a.optJSONObject(i) ?: return@List null
+                    val remote = c.optJSONObject("remote")?.let { BackupCodec.noteOf(it) } ?: return@List null
+                    BackupConflict(id = c.optString("id", ""), localTitle = c.optString("localTitle", ""),
+                        remoteTitle = c.optString("remoteTitle", ""),
+                        localUpdatedAt = c.optLong("localUpdatedAt", 0L),
+                        remoteUpdatedAt = c.optLong("remoteUpdatedAt", 0L), remote = remote)
+                }.mapNotNull { it }
+            } ?: emptyList()
         )
     }
 }
