@@ -5,7 +5,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nota.notes.data.SettingsStore
-import com.nota.notes.data.ServerRegister
+import com.nota.notes.billing.ServerRegister
 import com.nota.notes.data.AccountStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
