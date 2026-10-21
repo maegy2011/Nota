@@ -22,7 +22,7 @@ class GdprExportRunner @Inject constructor(
     private val settings: SettingsStore
 ) {
     // MediaCrypto كائن مفرد (object) — لا حقن — نفس نمط NoteMediaFiles.
-    suspend fun export(onProgress: (Float) -> Unit = {}): File = withContext(Dispatchers.IO) {
+    suspend fun export(onProgress: (Float) -> Unit = {}, password: String? = null): File = withContext(Dispatchers.IO) {
         onProgress(0.05f)
         // 1) الملاحظات الحية + السلة (مع deleted flag) — لقطة واحدة عبر first().
         val live = repo.all().first()
@@ -68,8 +68,18 @@ class GdprExportRunner @Inject constructor(
         onProgress(0.9f)
         // 4) تحذير الحجم — يُحسب قبل الكتابة، والواجهة تعرضه.
         val zip = GdprExport.assembleZip(files)
-        val out = File(ctx.cacheDir, "nota-export-${System.currentTimeMillis()}.zip")
-        out.writeBytes(zip)
+        onProgress(0.95f)
+        // 6د: تشفير اختياري بكلمة مرور — AES-GCM عبر BackupManager (ليست ZIP قياسية؛ تُفك داخل التطبيق).
+        // بلا كلمة: نفس السلوك السابق تمامًا (ZIP مكشوفة). يُختبر الفك على جهاز — ينتظر محمد.
+        if (password.isNullOrBlank()) {
+            val out = File(ctx.cacheDir, "nota-export-${System.currentTimeMillis()}.zip")
+            out.writeBytes(zip)
+            onProgress(1f)
+            return@withContext out
+        }
+        val enc = BackupManager.encryptBytesWithPassword(zip, password)
+        val out = File(ctx.cacheDir, "nota-export-${System.currentTimeMillis()}.zip.enc")
+        out.writeBytes(enc)
         onProgress(1f)
         out
     }

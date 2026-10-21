@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.core.content.FileProvider
 import com.nota.notes.R
 import com.nota.notes.data.AccountDeletion
@@ -59,6 +60,8 @@ fun PrivacySection(
         var exporting by remember { mutableStateOf(false) }
         var progress by remember { mutableStateOf(0f) }
         var exportMsg by remember { mutableStateOf<String?>(null) }
+        // 6د: كلمة مرور اختيارية لتشفير التصدير — فارغة = ZIP مكشوفة (السلوك السابق).
+        var exportPw by remember { mutableStateOf("") }
         Text(
             stringResource(R.string.privacy_export_sub),
             style = MaterialTheme.typography.bodySmall,
@@ -79,14 +82,23 @@ fun PrivacySection(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
+        OutlinedTextField(
+            value = exportPw,
+            onValueChange = { exportPw = it.take(64); exportMsg = null },
+            label = { Text(stringResource(R.string.privacy_export_pw_hint)) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+        )
         OutlinedButton(
             onClick = {
                 val runner = exportRunner ?: return@OutlinedButton
+                val pw = exportPw.takeIf { it.isNotBlank() }
                 scope.launch {
                     exporting = true; progress = 0f; exportMsg = null
                     try {
                         val file = withContext(Dispatchers.IO) {
-                            runner.export { p -> scope.launch { progress = p } }
+                            runner.export({ p -> scope.launch { progress = p } }, pw)
                         }
                         if (runner.isOversize(file)) {
                             exportMsg = ctx.getString(R.string.privacy_oversize_warn)
@@ -94,7 +106,7 @@ fun PrivacySection(
                         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
                         ctx.startActivity(Intent.createChooser(
                             Intent(Intent.ACTION_SEND).apply {
-                                type = "application/zip"
+                                type = if (file.name.endsWith(".enc")) "application/octet-stream" else "application/zip"
                                 putExtra(Intent.EXTRA_STREAM, uri)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             },

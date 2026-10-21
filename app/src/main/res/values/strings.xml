@@ -1081,6 +1081,8 @@
     <string name="privacy_title">الخصوصية وبياناتي</string>
     <string name="privacy_export_btn">تصدير كل بياناتي</string>
     <string name="privacy_export_sub">أرشيف ZIP: ملاحظاتك (بما فيها السلة) + مرفقاتك + إعداداتك (بلا مفاتيح حساسة) + سجل الاستعادة.</string>
+    <!-- 6د: كلمة مرور اختيارية لتشفير التصدير — فارغة = بلا تشفير -->
+    <string name="privacy_export_pw_hint">كلمة مرور التشفير (اختياري)</string>
     <string name="privacy_exporting">جارٍ التصدير…</string>
     <string name="privacy_export_ok">تم إنشاء الأرشيف — شاركه واحفظه في مكان آمن.</string>
     <string name="privacy_export_fail">تعذّر إنشاء الأرشيف — حاول مجددًا.</string>

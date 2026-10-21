@@ -174,4 +174,54 @@ object BackupManager {
         spec.clearPassword()
         return javax.crypto.spec.SecretKeySpec(tmp.encoded, "AES")
     }
+
+    // 6د: تشفير بايتات arbitrary (تصدير GDPR) — نفس بدائية الغلاف (PBKDF2 + AES-GCM-256).
+    // الصيغة "NOTABIN\nPW\n<iters>\n<salt>\n<iv>\n<ct>" — تُفك بـ decryptBytesWithPassword فقط.
+    // ليست ZIP قياسيًا (لا يفتحها 7-Zip) — الفك داخل التطبيق لاحقًا أو بأداة توافقية.
+    private const val HEADER_BIN = "NOTABIN"
+    fun encryptBytesWithPassword(bytes: ByteArray, password: String): ByteArray {
+        require(password.length >= MIN_PASSWORD_LEN) { "password must be at least $MIN_PASSWORD_LEN characters" }
+        require(isStrongPassword(password)) { "password is too weak" }
+        val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+        val key = deriveKey(password, salt, ITERS)
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, key)
+        val head = (HEADER_BIN + "\n" + KIND_PW + "\n" + ITERS + "\n" +
+            android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP) + "\n" +
+            android.util.Base64.encodeToString(cipher.iv, android.util.Base64.NO_WRAP) + "\n").toByteArray(Charsets.UTF_8)
+        return head + cipher.doFinal(bytes)
+    }
+
+    // فك بايتات 6د — يرمي عند كلمة غلط أو ملف تالف (GCM يكشف العبث)، نفس عقد decryptEnvelope.
+    fun decryptBytesWithPassword(blob: ByteArray, password: String): ByteArray {
+        require(password.isNotEmpty()) { "password required" }
+        // الرأس نصي حتى نهاية سطر الـ iv (5 أسطر) — الباقي ثنائي خام.
+        var nl = 0
+        var cut = -1
+        for (i in blob.indices) {
+            if (blob[i] == '\n'.code.toByte()) {
+                nl++
+                if (nl == 5) { cut = i + 1; break }
+            }
+        }
+        if (cut < 0) throw IllegalArgumentException("bad format")
+        val head = blob.copyOfRange(0, cut).toString(Charsets.UTF_8).split("\n")
+        if (head.size != 5 || head[0] != HEADER_BIN || head[1] != KIND_PW) throw IllegalArgumentException("bad format")
+        val iters = head[2].toIntOrNull()?.coerceIn(100_000, 2_000_000) ?: throw IllegalArgumentException("bad iters")
+        try {
+            val key = deriveKey(password, android.util.Base64.decode(head[3], android.util.Base64.NO_WRAP), iters)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                javax.crypto.Cipher.DECRYPT_MODE, key,
+                javax.crypto.spec.GCMParameterSpec(128, android.util.Base64.decode(head[4], android.util.Base64.NO_WRAP))
+            )
+            return cipher.doFinal(blob.copyOfRange(cut, blob.size))
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: java.security.GeneralSecurityException) {
+            throw IllegalStateException("فشل فك التشفير — تحقق من كلمة المرور", e)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalStateException("فشل فك التشفير — تحقق من كلمة المرور", e)
+        }
+    }
 }
