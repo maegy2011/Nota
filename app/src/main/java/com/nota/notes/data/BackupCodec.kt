@@ -4,7 +4,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ملاحظة مسطحة للنسخ الاحتياطي — تشمل الأرشيف (archivedAt) فيستعاد معها
+// P3-3أ (format v4): كل ملاحظة تحمل id ثابتًا (نص Room ID — يقبل UUID) — مفتاح الدمج بدل الثلاثي الضعيف.
+// ملاحظات v2/v3 بلا id تُمنح UUID عشوائيًا عند الفك (توافق خلفي — تُدرج دائمًا، والتكرار موثق في UI).
 data class BackupNote(
+    val id: String = "",
     val title: String,
     val body: String,
     val createdAt: Long,
@@ -42,7 +45,8 @@ data class BackupNote(
 data class BackupFolder(val name: String, val color: Int = 0)
 
 // بطاقة النسخة (v3): تُعرض معاينة قبل الاستعادة — بلا فك كامل
-data class BackupMeta(val count: Int, val createdAt: Long, val appVersion: String)
+// P3-3أ: version + sha256 اختياري (كشف تلف أقوى) — يُكتب عند التصدير ويُتجاهل عند الفك بلا كسر.
+data class BackupMeta(val count: Int, val createdAt: Long, val appVersion: String, val version: Int = 4, val sha256: String? = null)
 
 // مهمة واحدة في النسخة — الترتيب محفوظ بترتيب القائمة (الأول = الأعلى)
 data class BackupTask(val text: String, val done: Boolean = false)
@@ -53,12 +57,18 @@ data class BackupAttachment(val kind: String, val file: String, val sha: String?
 
 // ترميز/فك JSON للنسخ — تحقق صارم عند الفك: التالف يُتجاهل سطرًا سطرًا بلا كسر الاستعادة
 object BackupCodec {
-    const val V = 3 // نسخة الصيغة الحالية — الفك يقبل v2 (بلا مجلدات/بطاقة) وv3
+    const val V = 4 // نسخة الصيغة الحالية — الفك يقبل v2/v3/v4، والترميز يُخرج v4 فقط
+    // بصمة SHA-256 hex لنص مصفوفة الملاحظات — تُحسب على نفس السلسلة المُرمَّزة (كشف تلف اختياري).
+    fun sha256Hex(s: String): String {
+        val d = java.security.MessageDigest.getInstance("SHA-256").digest(s.toByteArray())
+        return d.joinToString("") { "%02x".format(it) }
+    }
     fun encode(notes: List<BackupNote>): String = encode(notes, emptyList(), "")
     fun encode(notes: List<BackupNote>, folders: List<BackupFolder>, appVersion: String = ""): String {
         val arr = JSONArray()
         notes.forEach { n ->
             arr.put(JSONObject()
+                .put("id", n.id)
                 .put("title", n.title)
                 .put("body", n.body)
                 .put("createdAt", n.createdAt)
@@ -94,16 +104,19 @@ object BackupCodec {
         val farr = JSONArray()
         folders.forEach { f -> farr.put(JSONObject().put("name", f.name).put("color", f.color)) }
         val meta = JSONObject().put("count", notes.size).put("createdAt", System.currentTimeMillis()).put("appVersion", appVersion)
+            .put("sha256", sha256Hex(arr.toString()))
         return JSONObject().put("app", "nota").put("v", V).put("meta", meta).put("folders", farr).put("notes", arr).toString()
     }
 
-    // بطاقة النسخة للمعاينة قبل الاستعادة — v3 من meta، وv2 من طول المصفوفة (بلا تاريخ)
+    // بطاقة النسخة للمعاينة قبل الاستعادة — v3/v4 من meta، وv2 من طول المصفوفة (بلا تاريخ)
+    // P3-3أ: تُرجع version + sha256 من meta متى وُجدا (v4) — غيابهما (v2/v3) = null/2 بلا كسر.
     fun preview(json: String): BackupMeta {
         val root = JSONObject(json)
         if (root.optString("app") != "nota") throw IllegalArgumentException("not a nota backup")
         val m = root.optJSONObject("meta")
-        return if (m != null) BackupMeta(m.optInt("count", 0), m.optLong("createdAt", 0L), m.optString("appVersion", ""))
-        else BackupMeta(root.optJSONArray("notes")?.length() ?: 0, 0L, "")
+        return if (m != null) BackupMeta(m.optInt("count", 0), m.optLong("createdAt", 0L), m.optString("appVersion", ""),
+            root.optInt("v", 3), if (m.isNull("sha256")) null else m.optString("sha256", null))
+        else BackupMeta(root.optJSONArray("notes")?.length() ?: 0, 0L, "", 2, null)
     }
 
     // مجلدات النسخة — تُعاد إنشاؤها عند الاستعادة إن غابت (v3 فقط)
@@ -130,7 +143,11 @@ object BackupCodec {
                 val o = arr.getJSONObject(i)
                 val body = o.optString("body", "")
                 val created = o.optLong("createdAt", 0L).takeIf { it > 0 } ?: continue
+                // P3-3أ: id ثابت من النسخة (v4) — الغائب (v2/v3) يُمنح UUID عشوائيًا (توافق خلفي).
+                val bid = o.optString("id", "").trim().take(64).takeIf { it.isNotBlank() }
+                    ?: java.util.UUID.randomUUID().toString()
                 out.add(BackupNote(
+                    id = bid,
                     title = o.optString("title", ""),
                     body = body,
                     createdAt = created,

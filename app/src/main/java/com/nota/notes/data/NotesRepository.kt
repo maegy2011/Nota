@@ -276,7 +276,8 @@ class NotesRepository(
         // النسخ للدرايف بنطاق الحساب الحالي فقط — ملاحظات حساب آخر لا تُرفع أبدًا
         // النسخة الكاملة تشمل السلة (27 سبتمبر 2026) — deletedAt يُحفظ ويُستعاد
         dao.backupAllOnce(acct()).map { n ->
-            BackupNote(title = n.title, body = n.body, createdAt = n.createdAt,
+            // P3-3أ (format v4): id الثابت = نص Room ID — يُستخدم مفتاح دمج عند الاستعادة.
+            BackupNote(id = n.id.toString(), title = n.title, body = n.body, createdAt = n.createdAt,
                 updatedAt = n.updatedAt, color = n.color, archivedAt = n.archivedAt, pinned = n.pinned,
                 folder = n.folderId?.let { folderNames[it] },
                 deletedAt = n.deletedAt,
