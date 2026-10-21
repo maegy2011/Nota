@@ -318,8 +318,13 @@ class CloudBackupViewModel @Inject constructor(
         }
     }
 
+    // P3-3ج: ملاحظات المعاينة للاختيار الجزئي — تُفك من نفس json المعاين (بلا إعادة قراءة).
+    fun previewNotes(): List<com.nota.notes.data.BackupNote> =
+        runCatching { previewJson?.let { BackupCodec.decode(it) } ?: emptyList() }.getOrDefault(emptyList())
+
     // تأكيد دمج معاينة Drive — نسخة أمان أولًا ثم دمج + إعادة جدولة
-    fun confirmRestore() {
+    // P3-3ج: selectedIds = null تعني الكل؛ غيرها تُستعاد المحددة فقط.
+    fun confirmRestore(selectedIds: Set<String>? = null) {
         val json = previewJson ?: return
         if (_working.value) return
         viewModelScope.launch {
@@ -327,7 +332,7 @@ class CloudBackupViewModel @Inject constructor(
             _message.value = null
             try {
                 repo.safetySnapshot()
-                val r = repo.restoreMerge(BackupCodec.decode(json), BackupCodec.foldersOf(json))
+                val r = repo.restoreMerge(BackupCodec.decode(json), BackupCodec.foldersOf(json), selectedIds)
                 runCatching {
                     repo.logRestore(com.nota.notes.data.RestoreRecord(src = "drive", added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
                 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -520,7 +522,10 @@ private fun DriveCard(
         )
     }
     // معاينة نسخة Drive قبل الدمج — نفس حوار نسخة الملف + تحذير القدم (27 سبتمبر 2026)
+    // P3-3ج: اختيار جزئي — checkbox لكل ملاحظة (الكل محددة افتراضيًا).
     cloudPreview?.let { pv ->
+        val pvNotes = remember(pv) { vm.previewNotes() }
+        var sel by remember(pv) { mutableStateOf(pvNotes.map { it.id }.toSet()) }
         AlertDialog(
             onDismissRequest = { vm.clearPreview() },
             title = { Text(stringResource(R.string.bk_preview_title)) },
@@ -541,10 +546,18 @@ private fun DriveCard(
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                    if (pvNotes.isNotEmpty()) {
+                        BackupNoteSelectionList(
+                            notes = pvNotes, selected = sel,
+                            onToggle = { id -> sel = if (id in sel) sel - id else sel + id },
+                            onSelectAll = { sel = pvNotes.map { it.id }.toSet() },
+                            onDeselectAll = { sel = emptySet() }
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { vm.confirmRestore() }) {
+                TextButton(onClick = { val s = sel; vm.confirmRestore(s) }) {
                     Text(stringResource(R.string.bk_preview_confirm))
                 }
             },
@@ -918,6 +931,53 @@ private fun CloudKeyCard(
         }
     }
 }
+// P3-3ج: قائمة اختيار الملاحظات للاستعادة الجزئية — checkbox لكل ملاحظة + الكل/إلغاء + عدّاد.
+@Composable
+private fun BackupNoteSelectionList(
+    notes: List<com.nota.notes.data.BackupNote>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onDeselectAll: () -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.restore_selected_fmt, selected.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onSelectAll) { Text(stringResource(R.string.restore_select_all)) }
+            TextButton(onClick = onDeselectAll) { Text(stringResource(R.string.restore_deselect_all)) }
+        }
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())
+        ) {
+            notes.forEach { n ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onToggle(n.id) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = n.id in selected, onCheckedChange = { onToggle(n.id) })
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            n.title.ifBlank { "—" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
+                        )
+                        Text(
+                            n.body.take(60),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 // 5) سجل عمليات الاستعادة: كل دمج (وقته/مصدره/عدده) + تراجع بالنقل للسلة — قابل للاستعادة 30 يومًا (27 سبتمبر 2026)
 @Composable
 private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {}) {
@@ -1141,11 +1201,12 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
         }
     }
 
-    fun restoreJson(json: String, tmp: File?) {
+    // P3-3ج: selectedIds = null تعني الكل؛ غيرها تُستعاد المحددة فقط.
+    fun restoreJson(json: String, tmp: File?, selectedIds: Set<String>? = null) {
         scope.launch {
             busy = true
             try {
-                val r = withContext(Dispatchers.IO) { vm.restoreBackupJson(json, "file") }
+                val r = withContext(Dispatchers.IO) { vm.restoreBackupJson(json, "file", selectedIds) }
                 resMsg = ctx.getString(R.string.bk_restored_fmt, r.added, r.skipped)
                 resPw = ""; pendingRestore = null
             } catch (e: Exception) {
@@ -1325,7 +1386,10 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             ) { Text(stringResource(R.string.bk_res_btn)) }
         }
         // حوار معاينة النسخة: العدد والتاريخ ثم دمج مؤكد — بلا مسح لشيء (27 سبتمبر 2026)
+        // P3-3ج: اختيار جزئي — checkbox لكل ملاحظة (الكل محددة افتراضيًا).
         previewRestore?.let { (json, tmp, meta) ->
+            val pvNotes = remember(json) { vm.previewNotes(json) }
+            var sel by remember(json) { mutableStateOf(pvNotes.map { it.id }.toSet()) }
             AlertDialog(
                 onDismissRequest = { tmp?.delete(); previewRestore = null },
                 title = { Text(stringResource(R.string.bk_preview_title)) },
@@ -1346,10 +1410,18 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
+                        if (pvNotes.isNotEmpty()) {
+                            BackupNoteSelectionList(
+                                notes = pvNotes, selected = sel,
+                                onToggle = { id -> sel = if (id in sel) sel - id else sel + id },
+                                onSelectAll = { sel = pvNotes.map { it.id }.toSet() },
+                                onDeselectAll = { sel = emptySet() }
+                            )
+                        }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { val j = json; val t = tmp; previewRestore = null; restoreJson(j, t) }) {
+                    TextButton(onClick = { val j = json; val t = tmp; val s = sel; previewRestore = null; restoreJson(j, t, s) }) {
                         Text(stringResource(R.string.bk_preview_confirm))
                     }
                 },

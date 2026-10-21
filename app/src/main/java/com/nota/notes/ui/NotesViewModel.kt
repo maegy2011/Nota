@@ -151,13 +151,19 @@ class NotesViewModel @Inject constructor(
     suspend fun isPreviewStale(meta: com.nota.notes.data.BackupMeta): Boolean =
         meta.createdAt > 0 && meta.createdAt < repo.newestUpdate()
 
+    // P3-3ج: ملاحظات المعاينة للاختيار الجزئي (تُستخدم في حوار المعاينة قبل الدمج).
+    fun previewNotes(json: String): List<com.nota.notes.data.BackupNote> =
+        runCatching { com.nota.notes.data.BackupCodec.decode(json) }.getOrDefault(emptyList())
+
     // الاستعادة بالدمج — نسخة أمان أولًا ثم دمج ثم تسجيل في سجل الاستعادة (قابل للتراجع)
     // P3-3ب: التعارضات تُسجَّل مع السجل (احتفظ بالمحلي + سجّل) وتُحل لاحقًا من بطاقة السجل.
-    suspend fun restoreBackupJson(json: String, source: String = "file"): com.nota.notes.data.NotesRepository.RestoreResult {
+    // P3-3ج: selectedIds = null تعني الكل؛ غيرها تُستعاد المحددة فقط.
+    suspend fun restoreBackupJson(json: String, source: String = "file", selectedIds: Set<String>? = null): com.nota.notes.data.NotesRepository.RestoreResult {
         repo.safetySnapshot()
         val r = repo.restoreMerge(
             com.nota.notes.data.BackupCodec.decode(json),
-            com.nota.notes.data.BackupCodec.foldersOf(json)
+            com.nota.notes.data.BackupCodec.foldersOf(json),
+            selectedIds
         )
         runCatching {
             repo.logRestore(com.nota.notes.data.RestoreRecord(src = source, added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))

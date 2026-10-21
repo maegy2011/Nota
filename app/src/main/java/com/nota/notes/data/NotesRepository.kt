@@ -308,7 +308,7 @@ class NotesRepository(
     // يرجع (مضافة، متخطاة، تعارضات). الأرشيف يُستعاد مؤرشفًا لأنه محفوظ في النسخة
     // نتيجة الدمج — addedIds للتراجع الآمن (نقل للسلة لا حذف) — سجل الاستعادة (27 سبتمبر 2026)
     data class RestoreResult(val added: Int, val skipped: Int, val addedIds: List<Long>, val conflicts: List<BackupConflict> = emptyList())
-    suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList()): RestoreResult = withContext(Dispatchers.IO) {
+    suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList(), selectedIds: Set<String>? = null): RestoreResult = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val folderIds = ensureFolders(folders)
         // كشف المكرر بنطاق الحساب الحالي — يشمل السلة فلا تتكرر مستعادة محذوفة
@@ -318,7 +318,9 @@ class NotesRepository(
         var added = 0; var skipped = 0
         val addedIds = mutableListOf<Long>()
         val conflicts = mutableListOf<BackupConflict>()
-        items.forEach { b ->
+        // P3-3ج: استعادة جزئية — null تعني الكل.
+        val list = if (selectedIds == null) items else items.filter { it.id in selectedIds }
+        list.forEach { b ->
             // P3-3ب: نفس id موجود محليًا — قارن المحتوى (تعارض أم تطابق).
             val local = byId[b.id]
             if (local != null) {
