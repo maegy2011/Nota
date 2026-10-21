@@ -391,7 +391,6 @@ private fun DriveCard(
             if (added > 0) onRestored("drive", added)
         }
     }
-    }
     val keep by vm.keepCount.collectAsStateWithLifecycle()
     val cloudPreview by vm.preview.collectAsStateWithLifecycle()
     val shrinkPct by vm.shrinkWarn.collectAsStateWithLifecycle()
@@ -722,7 +721,6 @@ private fun NotaCloudCard(
             val added = mm.removePrefix("nc-ok-restore:").split(":").getOrNull(0)?.toIntOrNull() ?: 0
             if (added > 0) onRestored("ncloud", added)
         }
-    }
     }
     SectionCard(stringResource(R.string.ncloud_title), locked = locked) {
         Text(
