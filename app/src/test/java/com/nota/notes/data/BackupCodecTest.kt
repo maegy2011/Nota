@@ -14,7 +14,7 @@ class BackupCodecTest {
 
     private fun note(id: String, title: String) = BackupNote(
         id = id, title = title, body = "body-$title", createdAt = 1700000000000L,
-        updatedAt = 1700000001000L, color = 1
+        updatedAt = 1700000001000L, color = 1, archivedAt = null
     )
 
     @Test fun `encode v4 includes ids and sha256`() {
@@ -81,7 +81,7 @@ class BackupCodecTest {
 
     @Test fun `noteJson and noteOf roundtrip preserves full note`() {
         val n = BackupNote(id = "5", title = "t", body = "b", createdAt = 1700000000000L,
-            updatedAt = 1700000001000L, color = 2, pinned = true, folder = "Work",
+            updatedAt = 1700000001000L, color = 2, archivedAt = null, pinned = true, folder = "Work",
             tags = listOf("a"), tasks = listOf(BackupTask("do", true)))
         val back = BackupCodec.noteOf(BackupCodec.noteJson(n))
         assertThat(back).isNotNull()
@@ -92,7 +92,7 @@ class BackupCodecTest {
     }
 
     @Test fun `sameBackupContent ignores id but detects edits`() {
-        val a = BackupNote(id = "1", title = "t", body = "b", createdAt = 10L, updatedAt = 20L)
+        val a = BackupNote(id = "1", title = "t", body = "b", createdAt = 10L, updatedAt = 20L, color = 0, archivedAt = null)
         val sameId2 = a.copy(id = "2")
         assertThat(BackupCodec.sameBackupContent(a, sameId2)).isTrue()
         assertThat(BackupCodec.sameBackupContent(a, a.copy(title = "t2"))).isFalse()
