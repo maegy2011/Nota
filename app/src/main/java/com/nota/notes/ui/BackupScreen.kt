@@ -710,7 +710,6 @@ private fun NotaCloudCard(
 }
 
 // 3) مفتاح السحابة الخاص: عرض + حفظ في ملف + نسخ + استيراد — داخل الشاشة لا خارجها
-@Composable
 // Phase 4هـ: بطاقة Key ظاهرة دائمًا — Free يرى القفل + ترقية، Pro/Trial كامل
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
