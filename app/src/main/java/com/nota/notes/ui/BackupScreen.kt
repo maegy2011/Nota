@@ -36,6 +36,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.RadioButton
@@ -148,6 +152,27 @@ fun BackupScreen(
         }
     }
     val fmt = remember { SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()) }
+    // P3-3د: snackbar تراجع 10 ثوانٍ (Long) بعد كل استعادة ناجحة — الزر يبقى في سجل الاستعادة بعدها.
+    val ctxRoot = LocalContext.current
+    val snack = remember { SnackbarHostState() }
+    val rootScope = rememberCoroutineScope()
+    val onRestored: (String, Int) -> Unit = { src, added ->
+        rootScope.launch {
+            val rec = withContext(Dispatchers.IO) { notesVm.restoreLogOnce().firstOrNull { it.src == src } }
+            if (rec != null) {
+                val res = snack.showSnackbar(
+                    message = ctxRoot.getString(R.string.restore_undo_snackbar_fmt, added),
+                    actionLabel = ctxRoot.getString(R.string.restore_undo_action),
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long
+                )
+                if (res == SnackbarResult.ActionPerformed) {
+                    withContext(Dispatchers.IO) { notesVm.undoRestore(rec.id) }
+                    authVm.touch()
+                }
+            }
+        }
+    }
     // P3-C2: طي الطرق + روابط سفلية + شيت الباقات
     var showLog by remember { mutableStateOf(false) }
     var driveAdv by remember { mutableStateOf(false) }
@@ -155,6 +180,7 @@ fun BackupScreen(
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Scaffold(
             // داخل DrawerShell: الهيدر المثبت من الغلاف — بلا شريط داخلي (27 سبتمبر 2026)
+            snackbarHost = { SnackbarHost(snack) },
             contentWindowInsets = WindowInsets(0)
         ) { pad ->
             Column(
@@ -212,16 +238,16 @@ fun BackupScreen(
                         working || ncWorking, { vm.backupNow() }, locked, onLocked
                     )
                     MethodSection(stringResource(R.string.bk_method_drive)) {
-                        DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv })
+                        DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv }, onRestored = onRestored)
                     }
                     MethodSection(stringResource(R.string.bk_method_ncloud)) {
-                        NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked)
+                        NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked, onRestored = onRestored)
                         if (ncPro) {
                             CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
                         }
                     }
                     MethodSection(stringResource(R.string.bk_method_file)) {
-                        FileBackupCard(notesVm, authVm, fmt, locked, onLocked)
+                        FileBackupCard(notesVm, authVm, fmt, locked, onLocked, onRestored = onRestored)
                     }
                     // روابط سفلية: سجل الاستعادة + إعدادات Drive المتقدمة
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -304,9 +330,19 @@ private fun DriveCard(
     onLocked: () -> Unit = {},
     // P3-C2: التكرار/عدد النسخ/كلمة المرور مطوية في «إعدادات متقدمة»
     advOpen: Boolean = false,
-    onAdvToggle: () -> Unit = {}
+    onAdvToggle: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
+    // P3-3د: راقب رسالة النجاح — اعرض snackbar مرة واحدة لكل دمج.
+    LaunchedEffect(msg) {
+        val mm = msg
+        if (mm?.startsWith("ok-restore:") == true) {
+            val added = mm.removePrefix("ok-restore:").split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            if (added > 0) onRestored("drive", added)
+        }
+    }
     val keep by vm.keepCount.collectAsStateWithLifecycle()
     val cloudPreview by vm.preview.collectAsStateWithLifecycle()
     val shrinkPct by vm.shrinkWarn.collectAsStateWithLifecycle()
@@ -584,9 +620,19 @@ private fun NotaCloudCard(
     fmt: SimpleDateFormat,
     clipboard: androidx.compose.ui.platform.ClipboardManager,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
+    // P3-3د: راقب رسالة النجاح — اعرض snackbar مرة واحدة لكل دمج.
+    LaunchedEffect(ncMsg) {
+        val mm = ncMsg
+        if (mm?.startsWith("nc-ok-restore:") == true) {
+            val added = mm.removePrefix("nc-ok-restore:").split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            if (added > 0) onRestored("ncloud", added)
+        }
+    }
     SectionCard(stringResource(R.string.ncloud_title), locked = locked) {
         Text(
             stringResource(R.string.ncloud_sub),
@@ -1168,7 +1214,9 @@ private fun PasswordStrengthIndicator(level: Int) {
 }
 // 4) ملف .nota المشفر بكلمة مرور: تصدير/مشاركة + استعادة بالدمج — نُقل من الإعدادات المتقدمة (قرار 23 سبتمبر 2026)
 @Composable
-private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {}) {
+private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.text.SimpleDateFormat, locked: Boolean = false, onLocked: () -> Unit = {},
+    // P3-3د: يُستدعى بعد استعادة ناجحة لعرض snackbar التراجع (10 ثوانٍ).
+    onRestored: (String, Int) -> Unit = { _, _ -> }) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var expPw by remember { mutableStateOf("") }
@@ -1208,6 +1256,8 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             try {
                 val r = withContext(Dispatchers.IO) { vm.restoreBackupJson(json, "file", selectedIds) }
                 resMsg = ctx.getString(R.string.bk_restored_fmt, r.added, r.skipped)
+                // P3-3د: snackbar تراجع 10 ثوانٍ (الزر يبقى في سجل الاستعادة بعدها).
+                if (r.added > 0) onRestored("file", r.added)
                 resPw = ""; pendingRestore = null
             } catch (e: Exception) {
                 resMsg = ctx.getString(R.string.bk_file_bad)

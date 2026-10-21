@@ -155,6 +155,9 @@
     <string name="restore_select_all">Select all</string>
     <string name="restore_deselect_all">Deselect all</string>
     <string name="restore_selected_fmt">%1$d notes selected</string>
+    <!-- P3-3d: undo snackbar -->
+    <string name="restore_undo_snackbar_fmt">Restored %1$d notes</string>
+    <string name="restore_undo_action">Undo</string>
     <string name="cloud_verify_failed">Upload verification failed — the suspect copy was deleted from cloud, retry</string>
     <string name="cloud_shrink_title">Backup much smaller</string>
     <string name="cloud_shrink_msg">The new one is only %1$d%% of the previous — accidental mass delete? Continuing uploads it, cancelling keeps cloud as is</string>

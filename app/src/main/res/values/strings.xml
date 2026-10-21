@@ -155,6 +155,9 @@
     <string name="restore_select_all">استعادة الكل</string>
     <string name="restore_deselect_all">إلغاء الكل</string>
     <string name="restore_selected_fmt">‏%1$d ملاحظة محددة</string>
+    <!-- P3-3د: snackbar التراجع -->
+    <string name="restore_undo_snackbar_fmt">تمت استعادة %1$d ملاحظة</string>
+    <string name="restore_undo_action">تراجع</string>
     <string name="cloud_verify_failed">فشل التحقق من الرفع — حُذفت النسخة المشكوك فيها من السحابة، أعد المحاولة</string>
     <string name="cloud_shrink_title">النسخة أصغر بكثير</string>
     <string name="cloud_shrink_msg">الجديدة %1$d%% فقط من السابقة — حذف جماعي بالخطأ؟ المتابعة ترفعها، والإلغاء يُبقي السحابة كما هي</string>
