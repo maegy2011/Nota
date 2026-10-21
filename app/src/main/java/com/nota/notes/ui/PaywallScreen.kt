@@ -51,7 +51,11 @@ fun PaywallScreen(
     // M4 (المرحلة 0أ-3): نتيجة آخر شراء — تُعرض مرة واحدة ثم تُستهلَك
     lastResult: BillingResult? = null,
     onPurchaseSuccess: () -> Unit = {},
-    onResultConsumed: () -> Unit = {}
+    onResultConsumed: () -> Unit = {},
+    // 5ب: التفعيل مؤجل — شراء ناجح بلا إبلاغ سيرفر (يُعرض مرة واحدة ثم يُستهلَك)
+    purchaseDeferred: Boolean = false,
+    deferredMsg: String = "",
+    onDeferredConsumed: () -> Unit = {}
 ) {
     val purchaseHost = remember { SnackbarHostState() }
     PurchaseResultEffect(
@@ -63,6 +67,15 @@ fun PaywallScreen(
         onSuccess = onPurchaseSuccess,
         onConsumed = onResultConsumed
     )
+    // 5ب: تنبيه التفعيل المؤجل — مرة واحدة ثم يُستهلَك (بلا تراكم مع نتيجة الشراء)
+    LaunchedEffect(purchaseDeferred) {
+        if (purchaseDeferred && deferredMsg.isNotBlank()) {
+            purchaseHost.showSnackbar(deferredMsg)
+            onDeferredConsumed()
+        } else if (purchaseDeferred) {
+            onDeferredConsumed()
+        }
+    }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background

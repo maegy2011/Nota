@@ -1667,6 +1667,8 @@ private fun ProPaywall(premiumVm: PremiumViewModel, accountVm: AccountViewModel,
     val refreshingState by premiumVm.refreshing.collectAsStateWithLifecycle()
     // M4 (المرحلة 0أ-3): نتيجة آخر شراء تُعرض للمستخدم — النجاح يُحدِّث الحالة تلقائيًا
     val lastResult by premiumVm.lastResult.collectAsStateWithLifecycle()
+    // 5ب: التفعيل المؤجل (شراء ناجح بلا إبلاغ سيرفر) — تنبيه واحد ثم استهلاك
+    val purchaseDeferred by premiumVm.purchaseDeferred.collectAsStateWithLifecycle()
     PaywallScreen(
         buying = buying,
         onUpgrade = { premiumVm.purchase(it) },
@@ -1680,7 +1682,10 @@ private fun ProPaywall(premiumVm: PremiumViewModel, accountVm: AccountViewModel,
         trialLeftMs = trialLeftMs,
         lastResult = lastResult,
         onPurchaseSuccess = { premiumVm.forceRefresh() },
-        onResultConsumed = { premiumVm.clearLastResult() }
+        onResultConsumed = { premiumVm.clearLastResult() },
+        purchaseDeferred = purchaseDeferred,
+        deferredMsg = stringResource(R.string.purchase_deferred_fmt),
+        onDeferredConsumed = { premiumVm.clearPurchaseDeferred() }
     )
 }
 

@@ -47,6 +47,11 @@ class PremiumViewModel @Inject constructor(
     private val _lastResult = MutableStateFlow<BillingResult?>(null)
     val lastResult: StateFlow<BillingResult?> = _lastResult.asStateFlow()
 
+    // 5ب: التفعيل مؤجل — الشراء نجح لكن إبلاغ السيرفر فشل (يُعرض مرة واحدة ثم يُستهلَك)
+    private val _purchaseDeferred = MutableStateFlow(false)
+    val purchaseDeferred: StateFlow<Boolean> = _purchaseDeferred.asStateFlow()
+    fun clearPurchaseDeferred() { _purchaseDeferred.value = false }
+
     // M4 (المرحلة 0أ-3): تُمسَح بعد عرضها للمستخدم — تُستهلَك مرة واحدة فقط
     fun clearLastResult() { _lastResult.value = null }
 
@@ -80,6 +85,17 @@ class PremiumViewModel @Inject constructor(
 
     init {
         refresh()
+        // 5ب: استعادة تلقائية للمشتريات عند بدء التطبيق — فارغة في mock (FakeBilling ترد [])
+        // فلا تُحدِث أي شبكة إلا بوجود مشتريات حقيقية تُبلَّغ أولًا
+        viewModelScope.launch {
+            val purchases = runCatching { gateway.queryPurchases() }.getOrDefault(emptyList())
+            if (purchases.isNotEmpty()) {
+                val ok = runCatching {
+                    purchases.forEach { gateway.reportPurchase(it.purchaseToken, it.productId).getOrThrow() }
+                }.isSuccess
+                if (ok) runCatching { repo.refresh(force = true) }.onSuccess { _entitlement.value = it }
+            }
+        }
     }
 
     fun refresh() {
@@ -130,8 +146,18 @@ class PremiumViewModel @Inject constructor(
                 .getOrElse { BillingResult.Failed(it.message ?: "error") }
             _lastResult.value = r
             if (r is BillingResult.Success) {
-                // C3 (المرحلة 0أ-2): force وإلا قد يعيد كاش FREE طازج بعد دفع ناجح
-                runCatching { repo.refresh(force = true) }.onSuccess { _entitlement.value = it }
+                // 5ب: إبلاغ السيرفر بالإيصال قبل الاعتماد — بلا إيصال مُبلَّغ لا Pro سيرفري
+                val token = r.purchaseToken
+                val reported = if (!token.isNullOrBlank()) {
+                    runCatching { gateway.reportPurchase(token, productId).getOrThrow() }.isSuccess
+                } else false
+                if (reported) {
+                    // C3 (المرحلة 0أ-2): force وإلا قد يعيد كاش FREE طازج بعد دفع ناجح
+                    runCatching { repo.refresh(force = true) }.onSuccess { _entitlement.value = it }
+                } else {
+                    // الدفع تم لكن التفعيل مؤجل — يُعرض للمستخدم مرة واحدة (snackbar مؤجل)
+                    _purchaseDeferred.value = true
+                }
             }
             _buying.value = false
         }

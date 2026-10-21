@@ -746,6 +746,8 @@
     <string name="purchase_success">Pro activated — enjoy all features</string>
     <string name="purchase_unavailable">Store unavailable right now — try again later</string>
     <string name="purchase_failed_fmt">Purchase failed: %1$s</string>
+    <!-- 5b: deferred activation — payment done but server report failed -->
+    <string name="purchase_deferred_fmt">Purchase done but activation is delayed — it will activate within minutes</string>
     <string name="acc_current">Your current plan</string>
     <string name="acc_forever">Free forever</string>
     <string name="acc_active">Active</string>

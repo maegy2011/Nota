@@ -768,6 +768,8 @@
     <string name="purchase_success">تم تفعيل Pro — استمتع بكل الميزات</string>
     <string name="purchase_unavailable">المتجر غير متاح الآن — حاول لاحقًا</string>
     <string name="purchase_failed_fmt">فشل الشراء: %1$s</string>
+    <!-- 5ب: التفعيل مؤجل — الدفع تم لكن إبلاغ السيرفر فشل -->
+    <string name="purchase_deferred_fmt">تم الشراء لكن التفعيل مؤجل — سيُفعَّل خلال دقائق</string>
     <string name="acc_current">Your current plan</string>
     <string name="acc_forever">Free forever</string>
     <string name="acc_active">Active</string>
