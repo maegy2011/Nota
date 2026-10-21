@@ -151,6 +151,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     val cloudAuto: Flow<Boolean> = ctx.settingsStore.data.map { it[K_CLOUD_AUTO] ?: false }
     val cloudFreq: Flow<String> = ctx.settingsStore.data.map { it[K_CLOUD_FREQ] ?: FREQ_OFF }
     suspend fun setCloudLast(v: Long) { ctx.settingsStore.edit { it[K_CLOUD_LAST] = v } }
+    // Phase 4a: حجم آخر نسخة ناجحة (بايت) — 0 = غير معروف
+    private val K_SIZE_LAST = longPreferencesKey("size_last_backup")
+    val sizeLast: Flow<Long> = ctx.settingsStore.data.map { it[K_SIZE_LAST] ?: 0L }
+    suspend fun setSizeLast(v: Long) { ctx.settingsStore.edit { it[K_SIZE_LAST] = v } }
     val cloudHash: Flow<String?> = ctx.settingsStore.data.map { it[K_CLOUD_HASH] }
     suspend fun setCloudHash(v: String) { ctx.settingsStore.edit { it[K_CLOUD_HASH] = v } }
     val cloudKeep: Flow<Int> = ctx.settingsStore.data.map { (it[K_CLOUD_KEEP] ?: 5).coerceIn(1, MAX_CLOUD_KEEP) }

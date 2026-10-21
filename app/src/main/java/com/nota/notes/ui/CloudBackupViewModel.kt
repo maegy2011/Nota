@@ -37,6 +37,9 @@ class CloudBackupViewModel @Inject constructor(
         accounts.accountId.map { it != null }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val lastBackup: StateFlow<Long> =
         settings.cloudLast.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+    // Phase 4أ: حجم آخر نسخة للبطاقة العلوية
+    val sizeLast: StateFlow<Long> =
+        settings.sizeLast.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
     val autoEnabled: StateFlow<Boolean> =
         settings.cloudAuto.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     // تكرار النسخ المجدول off|daily|weekly (27 سبتمبر 2026) — يزامن مفتاح التلقائي القديم ويجدول المنبه
@@ -181,6 +184,7 @@ class CloudBackupViewModel @Inject constructor(
         settings.setCloudHash(hash)
         settings.setCloudCount(noteCount)
         settings.setCloudLast(System.currentTimeMillis())
+        runCatching { settings.setSizeLast(plainJson.toByteArray().size.toLong()) }
         return true
     }
 

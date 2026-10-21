@@ -204,10 +204,13 @@ fun BackupScreen(
                         }
                     }
                 } else {
-                    // P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
+                    val sizeLast by vm.sizeLast.collectAsStateWithLifecycle()
+                    // Phase 4أ + P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
                     BackupSummaryCard(
                         last, ncPointer?.updatedAt ?: 0L, fmt,
-                        working || ncWorking, { vm.backupNow() }, locked, onLocked
+                        working || ncWorking, { vm.backupNow() }, locked, onLocked,
+                        sizeBytes = sizeLast,
+                        driveOk = last > 0, cloudOk = ncPointer != null, fileOk = true
                     )
                     MethodSection(stringResource(R.string.bk_method_drive)) {
                         DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv })
@@ -239,7 +242,7 @@ fun BackupScreen(
     }
 }
 
-// P3-C2: بطاقة ملخص الحالة — أحدث نسخة (Drive/سحابة) + زر «نسخ الآن»
+// Phase 4أ: بطاقة الملخص العلوي — آخر نسخة + الحجم + زر نسخ + 3 مؤشرات (Drive/Cloud/.nota)
 @Composable
 private fun BackupSummaryCard(
     lastDrive: Long,
@@ -248,25 +251,25 @@ private fun BackupSummaryCard(
     busy: Boolean,
     onBackupNow: () -> Unit,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    sizeBytes: Long = 0L,
+    driveOk: Boolean = false,
+    cloudOk: Boolean = false,
+    fileOk: Boolean = true
 ) {
     val best = maxOf(lastDrive, lastCloud)
     SectionCard(stringResource(R.string.bk_sum_title), top = 0.dp, locked = locked) {
         Text(
-            if (best > 0) stringResource(
-                R.string.bk_sum_fmt,
-                fmt.format(Date(best)),
-                stringResource(if (lastDrive >= lastCloud) R.string.bk_log_src_drive else R.string.bk_log_src_ncloud)
-            )
-            else stringResource(R.string.bk_sum_none),
+            if (best > 0) stringResource(R.string.backup_summary_last_fmt, fmt.format(Date(best)), stringResource(if (lastDrive >= lastCloud) R.string.bk_log_src_drive else R.string.bk_log_src_ncloud))
+            else stringResource(R.string.backup_summary_none),
             style = MaterialTheme.typography.titleMedium
         )
-        Button(
-            onClick = onBackupNow,
-            enabled = !busy && !locked,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-        ) {
-            Text(stringResource(R.string.cloud_backup_now))
+        if (sizeBytes > 0) { Text(stringResource(R.string.backup_summary_size_fmt, fmtBytes(sizeBytes)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp)) }
+        Button(onClick = onBackupNow, enabled = !busy && !locked, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.cloud_backup_now)) }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (driveOk) "Drive ✓" else "Drive ⚠", style = MaterialTheme.typography.labelMedium, color = if (driveOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(if (cloudOk) "Cloud ✓" else "Cloud ⚠", style = MaterialTheme.typography.labelMedium, color = if (cloudOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(if (fileOk) ".nota ✓" else ".nota ⚠", style = MaterialTheme.typography.labelMedium, color = if (fileOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         }
     }
 }

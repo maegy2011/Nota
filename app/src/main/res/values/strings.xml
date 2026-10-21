@@ -1108,6 +1108,10 @@
     <string name="bk_sum_title">حالة النسخ الاحتياطي</string>
     <string name="bk_sum_none">لا نسخ بعد — ابدأ أول نسخة الآن</string>
     <string name="bk_sum_fmt">آخر نسخة: %1$s — %2$s</string>
+    <!-- Phase 4أ -->
+    <string name="backup_summary_last_fmt">آخر نسخة: %1$s — %2$s</string>
+    <string name="backup_summary_none">لا نسخ بعد — ابدأ أول نسخة الآن</string>
+    <string name="backup_summary_size_fmt">الحجم: %1$s</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">سحابة نوتا</string>
     <string name="bk_method_file">ملف .nota</string>

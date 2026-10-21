@@ -1113,6 +1113,10 @@
     <string name="bk_sum_title">Backup status</string>
     <string name="bk_sum_none">No backups yet — start your first one now</string>
     <string name="bk_sum_fmt">Last backup: %1$s — %2$s</string>
+    <!-- Phase 4a -->
+    <string name="backup_summary_last_fmt">Last backup: %1$s — %2$s</string>
+    <string name="backup_summary_none">No backups yet — start your first one now</string>
+    <string name="backup_summary_size_fmt">Size: %1$s</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">Nota cloud</string>
     <string name="bk_method_file">.nota file</string>
