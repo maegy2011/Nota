@@ -340,6 +340,7 @@ private fun DriveCard(
                     m == "err:verify-failed" -> stringResource(R.string.cloud_verify_failed)
                     m == "err:consent-denied" -> stringResource(R.string.cloud_consent_denied)
                     m == "err:no-backup" -> stringResource(R.string.cloud_no_backup)
+                    m == "err:backup-running" || m == "err:already-running" -> stringResource(R.string.backup_already_running)
                     else -> stringResource(R.string.cloud_failed)
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -641,6 +642,7 @@ private fun NotaCloudCard(
                         )
                     }
                     nm == "nc-err-quota" -> stringResource(R.string.ncloud_err_quota)
+                    nm == "nc-err-running" -> stringResource(R.string.backup_already_running)
                     // المرحلة 1ج: رفض رفع الوسائط لغير المشتركين (فحص داخل الـ VM)
                     nm == "nc-err-pro-required" -> stringResource(R.string.ncloud_err_pro_required)
                     nm == "nc-err-nokey" -> stringResource(R.string.ncloud_err_nokey)

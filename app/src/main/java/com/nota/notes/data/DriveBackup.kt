@@ -13,6 +13,7 @@ import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -20,6 +21,11 @@ import org.json.JSONObject
 // الملاحظات للنسخ فقط كما طلب المستخدم — لا تُعرض ولا تُحرر في Drive، وملف واحد باسم ثابت يُحدَّث
 @Singleton
 class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Context) {
+
+    // Phase 2أ: قفل التزامن — نسخة واحدة في كل مرة (tryLock بلا انتظار).
+    internal val uploadMutex = Mutex()
+
+    class AlreadyRunning : Exception("already-running")
 
     companion object {
         const val SCOPE_APPDATA = "https://www.googleapis.com/auth/drive.appdata"
@@ -120,7 +126,11 @@ class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Conte
     }
 
     // الرفع: ملف مؤرخ جديد كل مرة + تدوير حسب اختيار المستخدم (1..7) — الأقدم يُحذف عند التجاوز (27 سبتمبر 2026)
-    suspend fun upload(json: String, keep: Int = 5): Unit = withContext(Dispatchers.IO) {
+    // Phase 2أ: tryLock — محاولة ثانية أثناء الرفع تُرفض فورًا بـ AlreadyRunning.
+    // Phase 2ب: onProgress(pct 0..100) — يُستدعى أثناء كتابة الجسم على دفعات.
+    suspend fun upload(json: String, keep: Int = 5, onProgress: ((Int) -> Unit)? = null): Unit = withContext(Dispatchers.IO) {
+        if (!uploadMutex.tryLock()) throw AlreadyRunning()
+        try {
         authed { t ->
             val boundary = "nota${System.currentTimeMillis()}"
             // المحتوى غلاف مشفر بكلمة المرور الثابتة — الامتداد .nota والنوع ثنائي (27 سبتمبر 2026)
@@ -134,7 +144,22 @@ class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Conte
             val c = conn("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", t, "POST")
             c.doOutput = true
             c.setRequestProperty("Content-Type", "multipart/related; boundary=$boundary")
-            c.outputStream.use { it.write(body) }
+            // Phase 2ب: كتابة مجزأة لتتبع التقدم — تحديث كل ~10% فقط لتقليل الضجيج.
+            c.outputStream.use { out ->
+                val chunk = 64 * 1024
+                var written = 0
+                var lastPct = -1
+                while (written < body.size) {
+                    val n = minOf(chunk, body.size - written)
+                    out.write(body, written, n)
+                    written += n
+                    val pct = (written * 100 / body.size).coerceIn(0, 100)
+                    if (pct / 10 != lastPct / 10 || pct == 100) {
+                        lastPct = pct
+                        runCatching { onProgress?.invoke(pct) }
+                    }
+                }
+            }
             val resp = readAll(c)
             if (c.responseCode !in 200..299) throw IllegalStateException("drive-upload:${c.responseCode} $resp")
             // التحقق يستخدم معرف الرفع المرجع مباشرة، لا أحدث نتيجة بحث — حتى لا تُقارن أو تُحذف نسخة أخرى عند التزامن أو تأخر الفهرسة.
@@ -161,6 +186,9 @@ class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Conte
                     readAll(d)
                 }
             }
+        }
+        } finally {
+            uploadMutex.unlock()
         }
     }
 

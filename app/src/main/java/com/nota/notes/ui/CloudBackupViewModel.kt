@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 // النسخ السحابي: نسخ/استعادة يدوية + تلقائي يومي صامت — الحالة للشاشة والتلقائي يُستدعى من App بعد القفل
@@ -51,6 +52,13 @@ class CloudBackupViewModel @Inject constructor(
             else com.nota.notes.backup.BackupScheduler.schedule(ctx, v)
         }
     }
+
+    // Phase 2أ: قفل التزامن — ضغط "نسخ الآن" مرتين = الثانية تُرفض برسالة بلا نسخة مكررة.
+    private val backupMutex = Mutex()
+
+    // Phase 2ب: تقدم الرفع 0..100 للـ notification — null عند الخمول.
+    private val _progress = MutableStateFlow<Int?>(null)
+    val progress: StateFlow<Int?> = _progress.asStateFlow()
 
     private val _working = MutableStateFlow(false)
     val working: StateFlow<Boolean> = _working.asStateFlow()
@@ -138,7 +146,8 @@ class CloudBackupViewModel @Inject constructor(
     fun clearShrink() { _shrinkWarn.value = null; shrinkPending = null }
     fun confirmShrink() {
         val (json, hash) = shrinkPending ?: return
-        if (_working.value) return
+        if (!backupMutex.tryLock()) { _message.value = "err:backup-running"; return }
+        if (_working.value) { backupMutex.unlock(); return }
         viewModelScope.launch {
             _working.value = true
             try {
@@ -156,13 +165,14 @@ class CloudBackupViewModel @Inject constructor(
                 _message.value = "err:${e.message}"
             } finally {
                 _working.value = false
+                if (backupMutex.isLocked) backupMutex.unlock()
             }
         }
     }
 
     // حارس الرفع (27 سبتمبر 2026): فارغة والسحابة فيها بيانات = تخطٍّ (لا مسح لسليمة) — ومكررة بلا تغيير = تخطٍّ
     // البصمة للمحتوى المكشوف (الغلاف مُملَّح فيختلف كل مرة) — تُمرَّر جاهزة من النداء المشفِّر
-    private suspend fun guardedUpload(envelope: String, plainJson: String, plainHash: String, noteCount: Int, silent: Boolean): Boolean {
+    private suspend fun guardedUpload(envelope: String, plainJson: String, plainHash: String, noteCount: Int, silent: Boolean, onProgress: ((Int) -> Unit)? = null): Boolean {
         val hash = plainHash
         if (hash == settings.cloudHash.first()) return false // بلا تغيير
         if (noteCount == 0 && drive.hasBackup()) {
@@ -177,7 +187,7 @@ class CloudBackupViewModel @Inject constructor(
             return false
         }
         if (silent && lastCount >= 10 && noteCount * 2 < lastCount) return false // التلقائي لا يرفع المنكمشة أبدًا
-        drive.upload(envelope, settings.cloudKeep.first())
+        drive.upload(envelope, settings.cloudKeep.first(), onProgress)
         settings.setCloudHash(hash)
         settings.setCloudCount(noteCount)
         settings.setCloudLast(System.currentTimeMillis())
@@ -189,8 +199,40 @@ class CloudBackupViewModel @Inject constructor(
         settings.cloudKeep.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.nota.notes.data.SettingsStore.DEFAULT_CLOUD_KEEP)
     fun setKeepCount(v: Int) = viewModelScope.launch { runCatching { settings.setCloudKeep(v) } }
 
+    // Phase 2ب: نسخة داخلية تقبل progress خارجي (للمجدول) — القفل والرسائل كما في backupNow.
+    suspend fun backupNowBlocking(onProgress: ((Int) -> Unit)? = null): Boolean {
+        if (!backupMutex.tryLock()) return false
+        try {
+            if (_working.value) return false
+            _working.value = true
+            _message.value = null
+            try {
+                val pw = storedDrivePassword() ?: throw IllegalStateException("no-drive-pw")
+                val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
+                val json = withContext(Dispatchers.IO) {
+                    BackupCodec.encode(notes, repo.backupFolders(), repo.appVersion())
+                }
+                return guardedUpload(
+                    withContext(Dispatchers.IO) {
+                        com.nota.notes.data.BackupManager.encryptEnvelope(json, pw)
+                    },
+                    json, sha256(json), notes.size, silent = true,
+                    onProgress = { p -> _progress.value = p; onProgress?.invoke(p) }
+                )
+            } finally {
+                _progress.value = null
+                _working.value = false
+            }
+        } finally {
+            backupMutex.unlock()
+        }
+    }
+
     fun backupNow() {
-        if (_working.value) return
+        if (!backupMutex.tryLock()) {
+            _message.value = "err:backup-running"
+            return
+        }
         consentTries = 0
         viewModelScope.launch {
             var op: suspend () -> Unit = {}
@@ -206,7 +248,8 @@ class CloudBackupViewModel @Inject constructor(
                     val envelope = withContext(Dispatchers.IO) {
                         com.nota.notes.data.BackupManager.encryptEnvelope(json, pw)
                     }
-                    val uploaded = guardedUpload(envelope, json, sha256(json), notes.size, silent = false)
+                    val uploaded = guardedUpload(envelope, json, sha256(json), notes.size, silent = false,
+                        onProgress = { p -> _progress.value = p })
                     _message.value = when {
                         uploaded -> "ok-backup"
                         _message.value != null -> _message.value
@@ -222,13 +265,16 @@ class CloudBackupViewModel @Inject constructor(
                         retryAfterConsent = null
                         _message.value = "err:consent-denied"
                     }
+                } catch (e: DriveBackup.AlreadyRunning) {
+                    _message.value = "err:backup-running"
                 } catch (e: Exception) {
                     _message.value = "err:${e.message}"
                 } finally {
+                    _progress.value = null
                     _working.value = false
                 }
             }
-            op()
+            try { op() } finally { backupMutex.unlock() }
         }
     }
 
@@ -344,6 +390,8 @@ class CloudBackupViewModel @Inject constructor(
 
     // التلقائي اليومي الصامت: يُستدعى من App بعد كل فتح قفل — يتخطى بصمت بلا شبكة/دخول/موافقة
     fun autoBackupIfDue() {
+        // Phase 2أ: نسخة يدوية جارية = تخطي التلقائية بصمت (بلا رسالة).
+        if (backupMutex.isLocked) return
         viewModelScope.launch {
             if (!settings.cloudAuto.first()) return@launch
             if (System.currentTimeMillis() - settings.cloudLast.first() < 24L * 60 * 60 * 1000) return@launch

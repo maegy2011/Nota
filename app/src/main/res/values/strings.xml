@@ -1117,6 +1117,10 @@
     <string name="bk_links_adv">إعدادات متقدمة</string>
     <string name="bk_pro_title">تعرّف على الباقات</string>
     <string name="bk_pro_msg">النسخ السحابي والمزايا المتقدمة ضمن باقات نوتا برو — ملاحظاتك تبقى على جهازك كما هي.</string>
+    <string name="backup_already_running">نسخة جارية — يرجى الانتظار</string>
+    <string name="backup_progress_channel">تقدم النسخ الاحتياطي</string>
+    <string name="backup_progress_title">جاري النسخ…</string>
+    <string name="backup_progress_body_fmt">%1$d%%</string>
     <string name="bk_exp_title">تصدير ملف .nota</string>
     <string name="bk_res_title">استعادة من ملف .nota</string>
 </resources>

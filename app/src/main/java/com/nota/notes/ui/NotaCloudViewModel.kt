@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 // سحابة نوتا (سيرفرنا): حصة مرئية + نسخ/استعادة يدوية لآخر نسخة — الأوفلاين المحلي لا يمسه شيء
@@ -42,6 +43,9 @@ class NotaCloudViewModel @Inject constructor(
 
     private val _pointer = MutableStateFlow<CloudPointer?>(null)
     val pointer: StateFlow<CloudPointer?> = _pointer.asStateFlow()
+
+    // Phase 2أ: قفل التزامن لسحابة نوتا — نفس عقد Drive (الثانية تُرفض).
+    private val cloudMutex = Mutex()
 
     private val _working = MutableStateFlow(false)
     val working: StateFlow<Boolean> = _working.asStateFlow()
@@ -81,7 +85,10 @@ class NotaCloudViewModel @Inject constructor(
     // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
     // P0-2 (أكتوبر 2026): بلا مفتاح سحابة = رفض كامل قبل أي شبكة — لا نص عادي على السيرفر أبدًا.
     fun backupNow(allowMedia: Boolean = false) {
-        if (_working.value) return
+        if (!cloudMutex.tryLock()) {
+            _message.value = "nc-err-running"
+            return
+        }
         viewModelScope.launch {
             _working.value = true
             _message.value = null
@@ -131,6 +138,7 @@ class NotaCloudViewModel @Inject constructor(
                 _message.value = "nc-err:${e.message}"
             } finally {
                 _working.value = false
+                cloudMutex.unlock()
             }
         }
     }

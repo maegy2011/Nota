@@ -24,13 +24,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
+import java.util.concurrent.atomic.AtomicBoolean
+import android.util.Log
 
 // النسخ السحابي المجدول (27 سبتمبر 2026): يومي/أسبوعي فجرًا عبر منبه غير دقيق (بلا إذن منبهات دقيقة) + إشعار بالنتيجة
 // يُعاد الجدولة بعد كل انطلاق + عند الإقلاع/فتح القفل + عند تغيير الإعداد — فلا يتوقف أبدًا
 object BackupScheduler {
     const val ACTION_BACKUP = "com.nota.notes.SCHEDULED_BACKUP"
     const val CHANNEL = "nota_backup"
+    const val PROGRESS_CHANNEL = "nota_backup_progress"
     private const val REQ = 19001
+    // Phase 2أ: حارس المجدول — نسخة مجدولة أثناء نسخة مجدولة أخرى تُتخطى + سجل.
+    internal val schedRunning = AtomicBoolean(false)
 
     fun schedule(ctx: Context, freq: String) {
         cancel(ctx)
@@ -92,6 +97,11 @@ class BackupReceiver : BroadcastReceiver() {
         // أعد الجدولة دائمًا أولًا حتى لو تخطينا — فالموعد القادم لا يضيع أبدًا
         BackupScheduler.schedule(app, freq)
         if (freq == SettingsStore.FREQ_OFF) return
+        // Phase 2أ: نسخة مجدولة جارية = تخطي الحالية + سجل (بلا نسختين متزامنتين).
+        if (!BackupScheduler.schedRunning.compareAndSet(false, true)) {
+            Log.w("BackupScheduler", "scheduled backup skipped: already running")
+            return
+        }
         // بلا حساب درايف مسجل = إشعار يطلب الدخول (بلا محاولة رفع)
         val acct = runCatching { AccountStore(app).currentAccountId() }.getOrNull()
         if (acct == null) {
@@ -103,14 +113,69 @@ class BackupReceiver : BroadcastReceiver() {
             val holder = DbHolder(app, store)
             val accounts = AccountStore(app)
             val repo = NotesRepository(holder, app, accounts)
-            val json = BackupCodec.encode(repo.backupNotes())
-            DriveBackup(app).upload(json)
+            val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
+            val json = BackupCodec.encode(notes)
+            // Phase 2ب: تقدم كل 10% في قناة منفصلة ongoing — يُلغى قبل إشعار النتيجة.
+            showProgress(app, 0)
+            var lastBucket = 0
+            DriveBackup(app).upload(json) { pct ->
+                val b = pct / 10
+                if (b != lastBucket || pct == 100) {
+                    lastBucket = b
+                    showProgress(app, pct)
+                }
+            }
             withContext(Dispatchers.IO) { settings.setCloudLast(System.currentTimeMillis()) }
+            cancelProgress(app)
             notify(app, app.getString(R.string.backup_sched_ok))
         } catch (e: DriveBackup.ConsentNeeded) {
+            cancelProgress(app)
             notify(app, app.getString(R.string.backup_sched_consent))
+        } catch (e: DriveBackup.AlreadyRunning) {
+            Log.w("BackupScheduler", "scheduled backup skipped: drive upload already running")
+            cancelProgress(app)
         } catch (e: Exception) {
+            cancelProgress(app)
             notify(app, app.getString(R.string.backup_sched_fail))
+        } finally {
+            BackupScheduler.schedRunning.set(false)
+        }
+    }
+
+    // Phase 2ب: إشعار التقدم — قناة منخفضة الأهمية، ongoing، يُحدَّث كل 10% فقط.
+    private fun showProgress(app: Context, pct: Int) {
+        val mgr = app.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        runCatching {
+            mgr.createNotificationChannel(
+                android.app.NotificationChannel(
+                    BackupScheduler.PROGRESS_CHANNEL,
+                    app.getString(R.string.backup_progress_channel),
+                    NotificationManager.IMPORTANCE_LOW
+                )
+            )
+        }
+        val open = PendingIntent.getActivity(
+            app, 19003,
+            Intent(app, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val n = NotificationCompat.Builder(app, BackupScheduler.PROGRESS_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notif_bell)
+            .setContentTitle(app.getString(R.string.backup_progress_title))
+            .setContentText(app.getString(R.string.backup_progress_body_fmt, pct))
+            .setProgress(100, pct, false)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(open)
+            .build()
+        runCatching { mgr.notify("nota_backup_progress", 19003, n) }
+    }
+
+    private fun cancelProgress(app: Context) {
+        runCatching {
+            (app.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
+                ?.cancel("nota_backup_progress", 19003)
         }
     }
 

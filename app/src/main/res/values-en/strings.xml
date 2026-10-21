@@ -1122,6 +1122,10 @@
     <string name="bk_links_adv">Advanced settings</string>
     <string name="bk_pro_title">See the plans</string>
     <string name="bk_pro_msg">Cloud backup and advanced features are part of Nota Pro plans — your notes stay on your device.</string>
+    <string name="backup_already_running">A backup is already running — please wait</string>
+    <string name="backup_progress_channel">Backup progress</string>
+    <string name="backup_progress_title">Backing up…</string>
+    <string name="backup_progress_body_fmt">%1$d%%</string>
     <string name="bk_exp_title">Export .nota file</string>
     <string name="bk_res_title">Restore from .nota file</string>
 </resources>
