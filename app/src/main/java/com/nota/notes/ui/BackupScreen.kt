@@ -353,6 +353,7 @@ private fun DriveCard(
         }
     }
     SectionCard(stringResource(R.string.cloud_sec_actions), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
         Button(onClick = { vm.backupNow() }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (working) R.string.cloud_working else R.string.cloud_backup_now))
         }
@@ -611,10 +612,13 @@ private fun NotaCloudCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+            Text(stringResource(if (ncPro) R.string.backup_pro_chip else R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
         Button(onClick = {
             ncvm.backupNow(ncPro)
         }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(if (ncWorking) R.string.cloud_working else R.string.ncloud_backup_now))
+            Text(if (ncWorking) stringResource(R.string.cloud_working) else if (ncPro) stringResource(R.string.ncloud_backup_now) else stringResource(R.string.ncloud_backup_now) + " (Free)")
         }
         if (!ncPro) {
             Text(
@@ -623,6 +627,9 @@ private fun NotaCloudCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
+        
+        } else {
+            Text("Pro: Full backup (text + media)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
         }
         OutlinedButton(onClick = {
             ncvm.restoreNow()
@@ -766,7 +773,20 @@ private fun CloudKeyCard(
             revealed = false
         }
     }
+    var showProSheet4b by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.ncloud_key_title), locked = locked) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.backup_pro_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { showProSheet4b = true }.padding(end = 8.dp))
+        }
+        if (showProSheet4b) {
+            ModalBottomSheet(onDismissRequest = { showProSheet4b = false }) {
+                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(stringResource(R.string.backup_pro_key_explain))
+                    Button(onClick = { showProSheet4b = false; onLocked() }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text(stringResource(R.string.paywall_upgrade)) }
+                    TextButton(onClick = { showProSheet4b = false }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cancel)) }
+                }
+            }
+        }
         Text(
             stringResource(R.string.ncloud_key_msg),
             style = MaterialTheme.typography.bodySmall,
@@ -930,6 +950,7 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
     var undoMsg by remember { mutableStateOf<String?>(null) }
     var undoBusy by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.bk_log_title), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         if (log.isEmpty()) {
             Text(
                 stringResource(R.string.bk_log_empty),
@@ -1105,6 +1126,7 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
 
     // P3-C2: التصدير بطاقة مستقلة — حقلا كلمة مرور للتصدير فقط
     SectionCard(stringResource(R.string.bk_exp_title), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         Text(
             stringResource(R.string.backup_sub),
             style = MaterialTheme.typography.bodySmall,

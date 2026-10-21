@@ -1117,6 +1117,10 @@
     <string name="backup_summary_last_fmt">Last backup: %1$s — %2$s</string>
     <string name="backup_summary_none">No backups yet — start your first one now</string>
     <string name="backup_summary_size_fmt">Size: %1$s</string>
+    <!-- Phase 4b -->
+    <string name="backup_pro_chip">Pro</string>
+    <string name="backup_free_chip">Free</string>
+    <string name="backup_pro_key_explain">The cloud key encrypts your media end-to-end. The server never sees it. Available in Pro.</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">Nota cloud</string>
     <string name="bk_method_file">.nota file</string>
