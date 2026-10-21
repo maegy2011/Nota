@@ -360,6 +360,7 @@ private fun DriveCard(
         OutlinedButton(onClick = { vm.restoreNow() }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.cloud_restore))
         }
+        DeleteOneDriveButton(vm, working, locked)
     }
     // P3-C2: التكرار وعدد النسخ وكلمة المرور في المتقدمة — الزر الرئيسي ظاهر دائمًا
     TextButton(onClick = onAdvToggle, modifier = Modifier.fillMaxWidth()) {
@@ -400,6 +401,7 @@ private fun DriveCard(
             )
             TextButton(onClick = { vm.setKeepCount(keep + 1) }, enabled = !working && keep < SettingsStore.MAX_CLOUD_KEEP && !locked) { Text("+") }
         }
+        DeleteAllDriveSection(vm, working, locked)
     // كلمة مرور Drive الثابتة (27 سبتمبر 2026): تُشفر بها كل النسخ تلقائيًا — وتُطلب أسبوعيًا للتأكيد
     SectionCard(stringResource(R.string.cloud_pw_title), locked = locked) {
         if (!pwSet) {
@@ -636,6 +638,7 @@ private fun NotaCloudCard(
         }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ncloud_restore))
         }
+        DeleteOneCloudButton(ncvm, ncPointer != null, ncWorking || working, locked)
         val nm = ncMsg
         if (nm != null) {
             val isErr = nm.startsWith("nc-err") || nm == "nc-err"
@@ -1308,6 +1311,35 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             )
         }
     }
+}
+
+// ─── Phase 4ج helpers: حذف نسخة + حذف الكل بتأكيد مزدوج — لا يمس .nota المحلي ───
+@Composable
+private fun DeleteOneDriveButton(vm: CloudBackupViewModel, working: Boolean, locked: Boolean) {
+    var confirm by remember { mutableStateOf(false) }
+    var versions by remember { mutableStateOf<List<com.nota.notes.data.DriveBackup.RemoteVersion>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    OutlinedButton(onClick = { scope.launch { versions = withContext(Dispatchers.IO) { vm.listDriveVersions() }; confirm = true } }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text(stringResource(R.string.backup_delete_one_title)) }
+    if (confirm) {
+        val latest = versions.firstOrNull()
+        AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.backup_delete_one_title)) }, text = { Text(stringResource(R.string.backup_delete_one_msg)) }, confirmButton = { TextButton(onClick = { confirm = false; if (latest != null) vm.deleteDriveById(latest.id) }) { Text(stringResource(R.string.backup_delete_one_title)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
+    }
+}
+@Composable
+private fun DeleteAllDriveSection(vm: CloudBackupViewModel, working: Boolean, locked: Boolean) {
+    var step1 by remember { mutableStateOf(false) }
+    var step2 by remember { mutableStateOf(false) }
+    var word by remember { mutableStateOf("") }
+    val need = stringResource(R.string.backup_delete_all_confirm_word)
+    OutlinedButton(onClick = { step1 = true }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.backup_delete_all_title)) }
+    if (step1) { AlertDialog(onDismissRequest = { step1 = false }, title = { Text(stringResource(R.string.backup_delete_all_title)) }, text = { Text(stringResource(R.string.backup_delete_all_msg)) }, confirmButton = { TextButton(onClick = { step1 = false; step2 = true }) { Text(stringResource(R.string.backup_delete_all_title)) } }, dismissButton = { TextButton(onClick = { step1 = false }) { Text(stringResource(R.string.cancel)) } }) }
+    if (step2) { AlertDialog(onDismissRequest = { step2 = false; word = "" }, title = { Text(stringResource(R.string.backup_delete_all_title)) }, text = { Column { Text(stringResource(R.string.backup_delete_all_msg)); OutlinedTextField(value = word, onValueChange = { word = it }, label = { Text(need) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) } }, confirmButton = { TextButton(onClick = { if (word.trim() == need) { step2 = false; word = ""; vm.deleteAllDrive() } }, enabled = word.trim() == need) { Text(need) } }, dismissButton = { TextButton(onClick = { step2 = false; word = "" }) { Text(stringResource(R.string.cancel)) } }) }
+}
+@Composable
+private fun DeleteOneCloudButton(ncvm: NotaCloudViewModel, hasBackup: Boolean, busy: Boolean, locked: Boolean) {
+    var confirm by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { confirm = true }, enabled = hasBackup && !busy && !locked, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text(stringResource(R.string.backup_delete_one_title)) }
+    if (confirm) { AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.backup_delete_one_title)) }, text = { Text(stringResource(R.string.backup_delete_one_msg)) }, confirmButton = { TextButton(onClick = { confirm = false; ncvm.deleteCloudBackup() }) { Text(stringResource(R.string.backup_delete_one_title)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } }) }
 }
 
 // خيار تكرار النسخ المجدول: راديو + تسمية — صف كامل نقّار (27 سبتمبر 2026)
