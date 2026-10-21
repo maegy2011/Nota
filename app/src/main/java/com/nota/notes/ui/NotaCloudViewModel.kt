@@ -84,6 +84,13 @@ class NotaCloudViewModel @Inject constructor(
     private val _detail = MutableStateFlow<String?>(null)
     val detail: StateFlow<String?> = _detail.asStateFlow()
 
+    // Phase 4د: معاينة Cloud قبل الدمج — نفس نصوص Drive (bk_preview_*) بلا تكرار
+    data class CloudRestorePreview(val count: Int, val createdAt: Long, val stale: Boolean)
+    private val _cloudPreview = MutableStateFlow<CloudRestorePreview?>(null)
+    val cloudPreview: StateFlow<CloudRestorePreview?> = _cloudPreview.asStateFlow()
+    private var pendingCloudJson: String? = null
+    fun clearCloudPreview() { _cloudPreview.value = null; pendingCloudJson = null }
+
     fun refresh() {
         viewModelScope.launch {
             val acct = accounts.currentAccountId() ?: return@launch
@@ -374,6 +381,70 @@ class NotaCloudViewModel @Inject constructor(
             } finally {
                 _working.value = false
             }
+        }
+    }
+
+    // Phase 4ج: حذف نسخة Cloud مفردة + حذف الكل — لا يمس .nota المحلي
+    fun deleteCloudBackup() {
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            try {
+                val acct = accounts.currentAccountId() ?: throw IllegalStateException("no-account")
+                val ptr = api.getPointer(acct, "backup_latest")
+                if (ptr != null) { runCatching { api.deleteBlob(acct, ptr.sha256) }; runCatching { api.deletePointer(acct, "backup_latest") } }
+                _pointer.value = null
+                _message.value = "nc-ok-backup"
+                refresh()
+            } catch (e: Exception) { _message.value = "nc-err:${e.message}" } finally { _working.value = false }
+        }
+    }
+    fun deleteAllCloud() = deleteCloudBackup()
+
+    // Phase 4د: تحضير معاينة Cloud — تنزيل + فك + عرض العدد/التاريخ قبل الدمج
+    fun prepareCloudPreview() {
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            _message.value = null
+            _detail.value = null
+            try {
+                val acct = accounts.currentAccountId() ?: throw IllegalStateException("no-account")
+                val ptr = api.getPointer(acct, "backup_latest") ?: run { _message.value = "nc-err-nobackup"; return@launch }
+                val bytes = api.downloadBlob(acct, ptr.sha256)
+                val CC = com.nota.notes.security.CloudMediaCrypto
+                val json = if (CC.isEnvelope(bytes)) {
+                    val k = withContext(Dispatchers.IO) { cloudKeys.getEntropy() }
+                    if (k == null) { _message.value = "nc-err-nokey"; return@launch }
+                    try {
+                        val plain = withContext(Dispatchers.IO) { CC.decryptKey(k, bytes) }
+                        if (plain == null) { _message.value = "nc-err-decrypt"; return@launch }
+                        try { plain.toString(Charsets.UTF_8) } finally { java.util.Arrays.fill(plain, 0) }
+                    } finally { CC.wipe(k) }
+                } else bytes.toString(Charsets.UTF_8)
+                val meta = withContext(Dispatchers.IO) { BackupCodec.preview(json) }
+                val stale = meta.createdAt > 0 && meta.createdAt < repo.newestUpdate()
+                pendingCloudJson = json
+                _cloudPreview.value = CloudRestorePreview(meta.count, meta.createdAt, stale)
+            } catch (e: CloudHttpException) { _detail.value = "${e.javaClass.simpleName}:${e.code}"; _message.value = "nc-err:${e.code}" }
+            catch (e: Exception) { _detail.value = "${e.javaClass.simpleName}:${e.message}"; _message.value = "nc-err:${e.message}" }
+            finally { _working.value = false }
+        }
+    }
+    fun confirmCloudRestore() {
+        val json = pendingCloudJson ?: return
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            try {
+                val decoded = BackupCodec.decode(json)
+                val r = repo.restoreMerge(decoded)
+                runCatching { repo.logRestore(com.nota.notes.data.RestoreRecord(src = "ncloud", added = r.added, skipped = r.skipped, addedIds = r.addedIds)) }
+                runCatching { ReminderScheduler.rescheduleAll(ctx) }
+                clearCloudPreview()
+                _message.value = "nc-ok-restore:${r.added}:${r.skipped}"
+                refresh()
+            } catch (e: Exception) { _message.value = "nc-err:${e.message}" } finally { _working.value = false }
         }
     }
 

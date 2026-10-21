@@ -1122,6 +1122,23 @@
     <string name="bk_sum_title">حالة النسخ الاحتياطي</string>
     <string name="bk_sum_none">لا نسخ بعد — ابدأ أول نسخة الآن</string>
     <string name="bk_sum_fmt">آخر نسخة: %1$s — %2$s</string>
+    <!-- Phase 4أ -->
+    <string name="backup_summary_last_fmt">آخر نسخة: %1$s — %2$s</string>
+    <string name="backup_summary_none">لا نسخ بعد — ابدأ أول نسخة الآن</string>
+    <string name="backup_summary_size_fmt">الحجم: %1$s</string>
+    <!-- Phase 4ب -->
+    <string name="backup_pro_chip">Pro</string>
+    <string name="backup_free_chip">مجاني</string>
+    <string name="backup_pro_key_explain">المفتاح السحابي يشفّر وسائطك من طرف إلى طرف. الخادم لا يراه أبدًا. متاح في Pro.</string>
+    <!-- Phase 4ج -->
+    <string name="backup_delete_one_title">حذف النسخة؟</string>
+    <string name="backup_delete_one_msg">لا يمكن التراجع عن حذف هذه النسخة.</string>
+    <string name="backup_delete_all_title">حذف كل النسخ الاحتياطية؟</string>
+    <string name="backup_delete_all_msg">سيُمسح كل النسخ الاحتياطية من Drive وCloud. متابعة؟</string>
+    <string name="backup_delete_all_confirm_word">احذف الكل</string>
+    <!-- Phase 4هـ -->
+    <string name="cloud_key_locked_msg">بطاقة مفتاح السحابة — تتطلب Pro لعرضها</string>
+    <string name="cloud_key_needed_for_media">هذه النسخة تحتوي على وسائط مشفرة — تحتاج مفتاح السحابة. [معلومات]</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">سحابة نوتا</string>
     <string name="bk_method_file">ملف .nota</string>

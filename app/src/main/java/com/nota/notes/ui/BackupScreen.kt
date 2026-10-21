@@ -232,35 +232,21 @@ fun BackupScreen(
                         }
                     }
                 } else {
-                    // P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
-                    // Phase 2ج: نص الحجم — Drive (آخر نسخة ناجحة) والسحابة (الحصة).
-                    val driveOpSum by vm.opStatus.collectAsStateWithLifecycle()
-                    val driveSizeText = (driveOpSum as? CloudBackupViewModel.OpStatus.Success)?.let {
-                        stringResource(
-                            R.string.backup_size_fmt,
-                            fmtBytes(it.bytes),
-                            fmtBytes(com.nota.notes.data.DriveBackup.MAX_DRIVE_BYTES)
-                        )
-                    }
-                    val cloudSizeText = ncQuota?.let {
-                        stringResource(
-                            R.string.backup_size_fmt,
-                            fmtBytes(it.usedBytes), fmtBytes(it.quotaBytes)
-                        )
-                    }
+                    val sizeLast by vm.sizeLast.collectAsStateWithLifecycle()
+                    // Phase 4أ + P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
                     BackupSummaryCard(
                         last, ncPointer?.updatedAt ?: 0L, fmt,
                         working || ncWorking, { vm.backupNow() }, locked, onLocked,
-                        driveSizeText = driveSizeText, cloudSizeText = cloudSizeText
+                        sizeBytes = sizeLast,
+                        driveOk = last > 0, cloudOk = ncPointer != null, fileOk = true
                     )
                     MethodSection(stringResource(R.string.bk_method_drive)) {
                         DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv }, onRestored = onRestored)
                     }
                     MethodSection(stringResource(R.string.bk_method_ncloud)) {
                         NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked, onRestored = onRestored)
-                        if (ncPro) {
-                            CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
-                        }
+                        // Phase 4هـ: بطاقة Key ظاهرة دائمًا — Free يرى رسالة القفل + ترقية
+                        CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked, isPro = ncPro, hasCloudMedia = ncPointer != null)
                     }
                     MethodSection(stringResource(R.string.bk_method_file)) {
                         FileBackupCard(notesVm, authVm, fmt, locked, onLocked, onRestored = onRestored)
@@ -283,7 +269,7 @@ fun BackupScreen(
     }
 }
 
-// P3-C2: بطاقة ملخص الحالة — أحدث نسخة (Drive/سحابة) + زر «نسخ الآن»
+// Phase 4أ: بطاقة الملخص العلوي — آخر نسخة + الحجم + زر نسخ + 3 مؤشرات (Drive/Cloud/.nota)
 @Composable
 private fun BackupSummaryCard(
     lastDrive: Long,
@@ -293,44 +279,24 @@ private fun BackupSummaryCard(
     onBackupNow: () -> Unit,
     locked: Boolean = false,
     onLocked: () -> Unit = {},
-    // Phase 2ج: نص الحجم لكل طريقة (يظهر عند توفره فقط).
-    driveSizeText: String? = null,
-    cloudSizeText: String? = null
+    sizeBytes: Long = 0L,
+    driveOk: Boolean = false,
+    cloudOk: Boolean = false,
+    fileOk: Boolean = true
 ) {
     val best = maxOf(lastDrive, lastCloud)
     SectionCard(stringResource(R.string.bk_sum_title), top = 0.dp, locked = locked) {
         Text(
-            if (best > 0) stringResource(
-                R.string.bk_sum_fmt,
-                fmt.format(Date(best)),
-                stringResource(if (lastDrive >= lastCloud) R.string.bk_log_src_drive else R.string.bk_log_src_ncloud)
-            )
-            else stringResource(R.string.bk_sum_none),
+            if (best > 0) stringResource(R.string.backup_summary_last_fmt, fmt.format(Date(best)), stringResource(if (lastDrive >= lastCloud) R.string.bk_log_src_drive else R.string.bk_log_src_ncloud))
+            else stringResource(R.string.backup_summary_none),
             style = MaterialTheme.typography.titleMedium
         )
-        // Phase 2ج: سطر الحجم — Drive والسحابة (يظهر عند توفره فقط).
-        if (driveSizeText != null) {
-            Text(
-                "Drive: $driveSizeText",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-        if (cloudSizeText != null) {
-            Text(
-                stringResource(R.string.bk_log_src_ncloud) + ": $cloudSizeText",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-        Button(
-            onClick = onBackupNow,
-            enabled = !busy && !locked,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-        ) {
-            Text(stringResource(R.string.cloud_backup_now))
+        if (sizeBytes > 0) { Text(stringResource(R.string.backup_summary_size_fmt, fmtBytes(sizeBytes)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp)) }
+        Button(onClick = onBackupNow, enabled = !busy && !locked, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.cloud_backup_now)) }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (driveOk) "Drive ✓" else "Drive ⚠", style = MaterialTheme.typography.labelMedium, color = if (driveOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(if (cloudOk) "Cloud ✓" else "Cloud ⚠", style = MaterialTheme.typography.labelMedium, color = if (cloudOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(if (fileOk) ".nota ✓" else ".nota ⚠", style = MaterialTheme.typography.labelMedium, color = if (fileOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -465,12 +431,14 @@ private fun DriveCard(
         }
     }
     SectionCard(stringResource(R.string.cloud_sec_actions), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
         Button(onClick = { vm.backupNow() }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (working) R.string.cloud_working else R.string.cloud_backup_now))
         }
         OutlinedButton(onClick = { vm.restoreNow() }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.cloud_restore))
         }
+        DeleteOneDriveButton(vm, working, locked)
     }
     // P3-C2: التكرار وعدد النسخ وكلمة المرور في المتقدمة — الزر الرئيسي ظاهر دائمًا
     TextButton(onClick = onAdvToggle, modifier = Modifier.fillMaxWidth()) {
@@ -511,6 +479,7 @@ private fun DriveCard(
             )
             TextButton(onClick = { vm.setKeepCount(keep + 1) }, enabled = !working && keep < SettingsStore.MAX_CLOUD_KEEP && !locked) { Text("+") }
         }
+        DeleteAllDriveSection(vm, working, locked)
     // كلمة مرور Drive الثابتة (27 سبتمبر 2026): تُشفر بها كل النسخ تلقائيًا — وتُطلب أسبوعيًا للتأكيد
     SectionCard(stringResource(R.string.cloud_pw_title), locked = locked) {
         if (!pwSet) {
@@ -756,10 +725,13 @@ private fun NotaCloudCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+            Text(stringResource(if (ncPro) R.string.backup_pro_chip else R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
         Button(onClick = {
             ncvm.backupNow(ncPro)
         }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(if (ncWorking) R.string.cloud_working else R.string.ncloud_backup_now))
+            Text(if (ncWorking) stringResource(R.string.cloud_working) else if (ncPro) stringResource(R.string.ncloud_backup_now) else stringResource(R.string.ncloud_backup_now) + " (Free)")
         }
         if (!ncPro) {
             Text(
@@ -768,12 +740,15 @@ private fun NotaCloudCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
+        
+        } else {
+            Text("Pro: Full backup (text + media)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
         }
-        OutlinedButton(onClick = {
-            ncvm.restoreNow()
-        }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { ncvm.prepareCloudPreview() }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ncloud_restore))
         }
+        CloudPreviewDialog(ncvm, fmt)
+        DeleteOneCloudButton(ncvm, ncPointer != null, ncWorking || working, locked)
         val nm = ncMsg
         if (nm != null) {
             val isErr = nm.startsWith("nc-err") || nm == "nc-err"
@@ -894,6 +869,8 @@ private fun NotaCloudCard(
 }
 
 // 3) مفتاح السحابة الخاص: عرض + حفظ في ملف + نسخ + استيراد — داخل الشاشة لا خارجها
+// Phase 4هـ: بطاقة Key ظاهرة دائمًا — Free يرى القفل + ترقية، Pro/Trial كامل
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CloudKeyCard(
     ncvm: NotaCloudViewModel,
@@ -901,7 +878,9 @@ private fun CloudKeyCard(
     working: Boolean,
     clipboard: androidx.compose.ui.platform.ClipboardManager,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    isPro: Boolean = true,
+    hasCloudMedia: Boolean = false
 ) {
     val ctx = LocalContext.current
     val keyScope = rememberCoroutineScope()
@@ -958,7 +937,28 @@ private fun CloudKeyCard(
             revealed = false
         }
     }
+    var showProSheet4b by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.ncloud_key_title), locked = locked) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.backup_pro_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { showProSheet4b = true }.padding(end = 8.dp))
+        }
+        if (showProSheet4b) {
+            ModalBottomSheet(onDismissRequest = { showProSheet4b = false }) {
+                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(stringResource(R.string.backup_pro_key_explain))
+                    Button(onClick = { showProSheet4b = false; onLocked() }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text(stringResource(R.string.paywall_upgrade)) }
+                    TextButton(onClick = { showProSheet4b = false }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cancel)) }
+                }
+            }
+        }
+        if (!isPro) {
+            Text(stringResource(R.string.cloud_key_locked_msg), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+            Button(onClick = onLocked, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.paywall_upgrade)) }
+        }
+        if (hasCloudMedia) {
+            Text(stringResource(R.string.cloud_key_needed_for_media), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        if (isPro) {
         Text(
             stringResource(R.string.ncloud_key_msg),
             style = MaterialTheme.typography.bodySmall,
@@ -1111,6 +1111,7 @@ private fun CloudKeyCard(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
+        } // end if (isPro)
     }
 }
 // P3-3ج: قائمة اختيار الملاحظات للاستعادة الجزئية — checkbox لكل ملاحظة + الكل/إلغاء + عدّاد.
@@ -1171,6 +1172,7 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
     // P3-3ب: حالة حل التعارضات (تمنع النقر المزدوج أثناء الكتابة).
     var resolving by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.bk_log_title), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         if (log.isEmpty()) {
             Text(
                 stringResource(R.string.bk_log_empty),
@@ -1435,6 +1437,7 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
 
     // P3-C2: التصدير بطاقة مستقلة — حقلا كلمة مرور للتصدير فقط
     SectionCard(stringResource(R.string.bk_exp_title), locked = locked) {
+        Text(stringResource(R.string.backup_free_chip), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         Text(
             stringResource(R.string.backup_sub),
             style = MaterialTheme.typography.bodySmall,
@@ -1627,6 +1630,43 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
             )
         }
     }
+}
+
+@Composable
+private fun CloudPreviewDialog(ncvm: NotaCloudViewModel, fmt: SimpleDateFormat) {
+    val pv by ncvm.cloudPreview.collectAsStateWithLifecycle()
+    pv?.let { v ->
+        AlertDialog(onDismissRequest = { ncvm.clearCloudPreview() }, title = { Text(stringResource(R.string.bk_preview_title)) }, text = { Column { Text(stringResource(R.string.bk_preview_msg, v.count, if (v.createdAt > 0) fmt.format(Date(v.createdAt)) else "—")); if (v.stale) { Text(stringResource(R.string.bk_preview_stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) } } }, confirmButton = { TextButton(onClick = { ncvm.confirmCloudRestore() }) { Text(stringResource(R.string.bk_preview_confirm)) } }, dismissButton = { TextButton(onClick = { ncvm.clearCloudPreview() }) { Text(stringResource(R.string.cancel)) } })
+    }
+}
+
+// ─── Phase 4ج helpers: حذف نسخة + حذف الكل بتأكيد مزدوج — لا يمس .nota المحلي ───
+@Composable
+private fun DeleteOneDriveButton(vm: CloudBackupViewModel, working: Boolean, locked: Boolean) {
+    var confirm by remember { mutableStateOf(false) }
+    var versions by remember { mutableStateOf<List<com.nota.notes.data.DriveBackup.RemoteVersion>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    OutlinedButton(onClick = { scope.launch { versions = withContext(Dispatchers.IO) { vm.listDriveVersions() }; confirm = true } }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text(stringResource(R.string.backup_delete_one_title)) }
+    if (confirm) {
+        val latest = versions.firstOrNull()
+        AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.backup_delete_one_title)) }, text = { Text(stringResource(R.string.backup_delete_one_msg)) }, confirmButton = { TextButton(onClick = { confirm = false; if (latest != null) vm.deleteDriveById(latest.id) }) { Text(stringResource(R.string.backup_delete_one_title)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
+    }
+}
+@Composable
+private fun DeleteAllDriveSection(vm: CloudBackupViewModel, working: Boolean, locked: Boolean) {
+    var step1 by remember { mutableStateOf(false) }
+    var step2 by remember { mutableStateOf(false) }
+    var word by remember { mutableStateOf("") }
+    val need = stringResource(R.string.backup_delete_all_confirm_word)
+    OutlinedButton(onClick = { step1 = true }, enabled = !working && !locked, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.backup_delete_all_title)) }
+    if (step1) { AlertDialog(onDismissRequest = { step1 = false }, title = { Text(stringResource(R.string.backup_delete_all_title)) }, text = { Text(stringResource(R.string.backup_delete_all_msg)) }, confirmButton = { TextButton(onClick = { step1 = false; step2 = true }) { Text(stringResource(R.string.backup_delete_all_title)) } }, dismissButton = { TextButton(onClick = { step1 = false }) { Text(stringResource(R.string.cancel)) } }) }
+    if (step2) { AlertDialog(onDismissRequest = { step2 = false; word = "" }, title = { Text(stringResource(R.string.backup_delete_all_title)) }, text = { Column { Text(stringResource(R.string.backup_delete_all_msg)); OutlinedTextField(value = word, onValueChange = { word = it }, label = { Text(need) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) } }, confirmButton = { TextButton(onClick = { if (word.trim() == need) { step2 = false; word = ""; vm.deleteAllDrive() } }, enabled = word.trim() == need) { Text(need) } }, dismissButton = { TextButton(onClick = { step2 = false; word = "" }) { Text(stringResource(R.string.cancel)) } }) }
+}
+@Composable
+private fun DeleteOneCloudButton(ncvm: NotaCloudViewModel, hasBackup: Boolean, busy: Boolean, locked: Boolean) {
+    var confirm by remember { mutableStateOf(false) }
+    OutlinedButton(onClick = { confirm = true }, enabled = hasBackup && !busy && !locked, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text(stringResource(R.string.backup_delete_one_title)) }
+    if (confirm) { AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.backup_delete_one_title)) }, text = { Text(stringResource(R.string.backup_delete_one_msg)) }, confirmButton = { TextButton(onClick = { confirm = false; ncvm.deleteCloudBackup() }) { Text(stringResource(R.string.backup_delete_one_title)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } }) }
 }
 
 // خيار تكرار النسخ المجدول: راديو + تسمية — صف كامل نقّار (27 سبتمبر 2026)

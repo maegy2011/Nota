@@ -1127,6 +1127,23 @@
     <string name="bk_sum_title">Backup status</string>
     <string name="bk_sum_none">No backups yet — start your first one now</string>
     <string name="bk_sum_fmt">Last backup: %1$s — %2$s</string>
+    <!-- Phase 4a -->
+    <string name="backup_summary_last_fmt">Last backup: %1$s — %2$s</string>
+    <string name="backup_summary_none">No backups yet — start your first one now</string>
+    <string name="backup_summary_size_fmt">Size: %1$s</string>
+    <!-- Phase 4b -->
+    <string name="backup_pro_chip">Pro</string>
+    <string name="backup_free_chip">Free</string>
+    <string name="backup_pro_key_explain">The cloud key encrypts your media end-to-end. The server never sees it. Available in Pro.</string>
+    <!-- Phase 4c -->
+    <string name="backup_delete_one_title">Delete this backup?</string>
+    <string name="backup_delete_one_msg">Deleting this backup cannot be undone.</string>
+    <string name="backup_delete_all_title">Delete all backups?</string>
+    <string name="backup_delete_all_msg">All backups will be erased from Drive and Cloud. Continue?</string>
+    <string name="backup_delete_all_confirm_word">DELETE ALL</string>
+    <!-- Phase 4e -->
+    <string name="cloud_key_locked_msg">Cloud key card — requires Pro to view</string>
+    <string name="cloud_key_needed_for_media">This backup contains encrypted media — it needs the cloud key. [Info]</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">Nota cloud</string>
     <string name="bk_method_file">.nota file</string>
