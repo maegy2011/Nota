@@ -56,9 +56,29 @@ class CloudBackupViewModel @Inject constructor(
     // Phase 2أ: قفل التزامن — ضغط "نسخ الآن" مرتين = الثانية تُرفض برسالة بلا نسخة مكررة.
     private val backupMutex = Mutex()
 
-    // Phase 2ب: تقدم الرفع 0..100 للـ notification — null عند الخمول.
+    // Phase 2ب: تقدم الرفع 0..100 للـ notification والـ banner — null عند الخمول.
     private val _progress = MutableStateFlow<Int?>(null)
     val progress: StateFlow<Int?> = _progress.asStateFlow()
+
+    // Phase 2ج: تحذير الحجم الكبير — حوار تأكيد لا رفض (يُملأ قبل الرفع، يُمسح بعده).
+    data class SizeWarning(val bytes: Long, val limit: Long)
+    private val _sizeWarn = MutableStateFlow<SizeWarning?>(null)
+    val sizeWarn: StateFlow<SizeWarning?> = _sizeWarn.asStateFlow()
+    private var sizeWarnAccepted = false
+    fun acceptSizeWarn() { sizeWarnAccepted = true; _sizeWarn.value = null; backupNow() }
+    fun dismissSizeWarn() { sizeWarnAccepted = false; _sizeWarn.value = null }
+
+    // Phase 2د: حالة العملية للـ banner المضمّن — تُمسح بعد 10 ثوانٍ من الواجهة.
+    sealed interface OpStatus {
+        data object Idle : OpStatus
+        data class Running(val pct: Int?) : OpStatus
+        data class Success(val bytes: Long, val millis: Long) : OpStatus
+        data class Failed(val msg: String) : OpStatus
+    }
+    private val _opStatus = MutableStateFlow<OpStatus>(OpStatus.Idle)
+    val opStatus: StateFlow<OpStatus> = _opStatus.asStateFlow()
+    // Phase 2د: إخفاء البانر يدويًا/بعد 10 ثوانٍ — الحالة تبقى في message للسجل.
+    fun clearOpStatus() { _opStatus.value = OpStatus.Idle }
 
     private val _working = MutableStateFlow(false)
     val working: StateFlow<Boolean> = _working.asStateFlow()
@@ -206,19 +226,25 @@ class CloudBackupViewModel @Inject constructor(
             if (_working.value) return false
             _working.value = true
             _message.value = null
+            _opStatus.value = OpStatus.Running(null)
+            val t0 = System.currentTimeMillis()
             try {
                 val pw = storedDrivePassword() ?: throw IllegalStateException("no-drive-pw")
                 val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
                 val json = withContext(Dispatchers.IO) {
                     BackupCodec.encode(notes, repo.backupFolders(), repo.appVersion())
                 }
-                return guardedUpload(
+                val uploaded = guardedUpload(
                     withContext(Dispatchers.IO) {
                         com.nota.notes.data.BackupManager.encryptEnvelope(json, pw)
                     },
                     json, sha256(json), notes.size, silent = true,
-                    onProgress = { p -> _progress.value = p; onProgress?.invoke(p) }
+                    onProgress = { p -> _progress.value = p; onProgress?.invoke(p); _opStatus.value = OpStatus.Running(p) }
                 )
+                val dt = System.currentTimeMillis() - t0
+                if (uploaded) _opStatus.value = OpStatus.Success(json.toByteArray().size.toLong(), dt)
+                else if (_opStatus.value is OpStatus.Running) _opStatus.value = OpStatus.Idle
+                return uploaded
             } finally {
                 _progress.value = null
                 _working.value = false
@@ -231,31 +257,44 @@ class CloudBackupViewModel @Inject constructor(
     fun backupNow() {
         if (!backupMutex.tryLock()) {
             _message.value = "err:backup-running"
+            _opStatus.value = OpStatus.Failed("err:backup-running")
             return
         }
         consentTries = 0
         viewModelScope.launch {
             var op: suspend () -> Unit = {}
-            op = {
+            op = opLambda@{
                 _working.value = true
                 _message.value = null
+                _opStatus.value = OpStatus.Running(null)
+                val t0 = System.currentTimeMillis()
                 try {
                     val pw = storedDrivePassword() ?: throw IllegalStateException("no-drive-pw")
                     val notes = withContext(Dispatchers.IO) { repo.backupNotes() }
                     val json = withContext(Dispatchers.IO) {
                         BackupCodec.encode(notes, repo.backupFolders(), repo.appVersion())
                     }
+                    // Phase 2ج: حد الحجم — حوار تأكيد لا رفض (Drive: 100MB).
+                    val sizeBytes = json.toByteArray().size.toLong()
+                    if (!sizeWarnAccepted && sizeBytes > com.nota.notes.data.DriveBackup.MAX_DRIVE_BYTES) {
+                        _sizeWarn.value = SizeWarning(sizeBytes, com.nota.notes.data.DriveBackup.MAX_DRIVE_BYTES)
+                        _opStatus.value = OpStatus.Idle
+                        return@opLambda
+                    }
+                    sizeWarnAccepted = false
                     val envelope = withContext(Dispatchers.IO) {
                         com.nota.notes.data.BackupManager.encryptEnvelope(json, pw)
                     }
                     val uploaded = guardedUpload(envelope, json, sha256(json), notes.size, silent = false,
-                        onProgress = { p -> _progress.value = p })
+                        onProgress = { p -> _progress.value = p; _opStatus.value = OpStatus.Running(p) })
                     _message.value = when {
                         uploaded -> "ok-backup"
                         _message.value != null -> _message.value
                         _shrinkWarn.value != null -> null // حوار الانكماش هو الرسالة — بلا سطر مضلل
                         else -> "ok-backup-same"
                     }
+                    if (uploaded) _opStatus.value = OpStatus.Success(sizeBytes, System.currentTimeMillis() - t0)
+                    else if (_opStatus.value is OpStatus.Running) _opStatus.value = OpStatus.Idle
                 } catch (e: DriveBackup.ConsentNeeded) {
                     // رفض الموافقة مرتين = توقف برسالة — لا حلقة طلبات أبدًا
                     if (++consentTries < 3) {
@@ -265,10 +304,13 @@ class CloudBackupViewModel @Inject constructor(
                         retryAfterConsent = null
                         _message.value = "err:consent-denied"
                     }
+                    _opStatus.value = OpStatus.Failed(_message.value ?: "err")
                 } catch (e: DriveBackup.AlreadyRunning) {
                     _message.value = "err:backup-running"
+                    _opStatus.value = OpStatus.Failed("err:backup-running")
                 } catch (e: Exception) {
                     _message.value = "err:${e.message}"
+                    _opStatus.value = OpStatus.Failed(_message.value ?: "err")
                 } finally {
                     _progress.value = null
                     _working.value = false
@@ -390,7 +432,7 @@ class CloudBackupViewModel @Inject constructor(
 
     // التلقائي اليومي الصامت: يُستدعى من App بعد كل فتح قفل — يتخطى بصمت بلا شبكة/دخول/موافقة
     fun autoBackupIfDue() {
-        // Phase 2أ: نسخة يدوية جارية = تخطي التلقائية بصمت (بلا رسالة).
+        // Phase 2أ: نسخة يدوية جارية = تخطي التلقائية بصمت (بلا رسالة). 
         if (backupMutex.isLocked) return
         viewModelScope.launch {
             if (!settings.cloudAuto.first()) return@launch

@@ -29,6 +29,8 @@ class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Conte
 
     companion object {
         const val SCOPE_APPDATA = "https://www.googleapis.com/auth/drive.appdata"
+        // Phase 2ج: الحد الأقصى لحجم نسخة Drive (يُستخدم للتحذير لا للرفض — حوار).
+        const val MAX_DRIVE_BYTES: Long = 100L * 1024 * 1024
         private const val FILE_PREFIX = "nota-backup-"
         private const val LEGACY_NAME = "nota-backup.json" // الاسم الثابت القديم — يُقرأ ويُستبدل بالدوران تلقائيًا
         private const val MIME_JSON = "application/json"

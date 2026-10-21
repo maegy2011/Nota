@@ -47,6 +47,29 @@ class NotaCloudViewModel @Inject constructor(
     // Phase 2أ: قفل التزامن لسحابة نوتا — نفس عقد Drive (الثانية تُرفض).
     private val cloudMutex = Mutex()
 
+    // Phase 2ب/2د: تقدم + حالة للـ banner — نفس عقد CloudBackupViewModel.
+    private val _progress = MutableStateFlow<Int?>(null)
+    val progress: StateFlow<Int?> = _progress.asStateFlow()
+    sealed interface OpStatus {
+        data object Idle : OpStatus
+        data class Running(val pct: Int?) : OpStatus
+        data class Success(val bytes: Long, val millis: Long) : OpStatus
+        data class Failed(val msg: String) : OpStatus
+    }
+    private val _opStatus = MutableStateFlow<OpStatus>(OpStatus.Idle)
+    val opStatus: StateFlow<OpStatus> = _opStatus.asStateFlow()
+    // Phase 2د: إخفاء البانر يدويًا/بعد 10 ثوانٍ.
+    fun clearOpStatus() { _opStatus.value = OpStatus.Idle }
+
+    // Phase 2ج: تحذير الحصة — حوار لا رفض عند تجاوز 50%، ورفض واضح عند تجاوز الحصة.
+    data class QuotaWarning(val bytes: Long, val used: Long, val total: Long)
+    private val _quotaWarn = MutableStateFlow<QuotaWarning?>(null)
+    val quotaWarn: StateFlow<QuotaWarning?> = _quotaWarn.asStateFlow()
+    private var quotaWarnAccepted = false
+    fun acceptQuotaWarn() { quotaWarnAccepted = true; _quotaWarn.value = null; backupNow(pendingMedia) }
+    fun dismissQuotaWarn() { quotaWarnAccepted = false; _quotaWarn.value = null }
+    private var pendingMedia = false
+
     private val _working = MutableStateFlow(false)
     val working: StateFlow<Boolean> = _working.asStateFlow()
 
@@ -85,14 +108,18 @@ class NotaCloudViewModel @Inject constructor(
     // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
     // P0-2 (أكتوبر 2026): بلا مفتاح سحابة = رفض كامل قبل أي شبكة — لا نص عادي على السيرفر أبدًا.
     fun backupNow(allowMedia: Boolean = false) {
+        pendingMedia = allowMedia
         if (!cloudMutex.tryLock()) {
             _message.value = "nc-err-running"
+            _opStatus.value = OpStatus.Failed("nc-err-running")
             return
         }
         viewModelScope.launch {
             _working.value = true
             _message.value = null
             _detail.value = null
+            _opStatus.value = OpStatus.Running(null)
+            val t0 = System.currentTimeMillis()
             try {
                 // المرحلة 1ج: الوسائط للمشتركين فقط — فحص داخل الـ VM لا في الـ UI فقط.
                 // Trial يفتح الكل (T3 مغلق): isProNow() يشمل التجربة النشطة.
@@ -121,10 +148,31 @@ class NotaCloudViewModel @Inject constructor(
                             key, json.toByteArray(Charsets.UTF_8)
                         )
                     }
+                    // Phase 2ج: فحص الحصة قبل الرفع — تجاوز = رفض واضح، >50% = حوار تحذير.
+                    val q = runCatching { api.getQuota(acct) }.getOrNull()
+                    if (q != null && q.quotaBytes > 0) {
+                        val willUse = q.usedBytes + bytes.size.toLong()
+                        if (willUse > q.quotaBytes) {
+                            _message.value = "nc-err-quota-will-exceed"
+                            _detail.value = "quota:will-exceed:${bytes.size}:${q.usedBytes}:${q.quotaBytes}"
+                            _opStatus.value = OpStatus.Failed("nc-err-quota-will-exceed")
+                            return@launch
+                        }
+                        if (!quotaWarnAccepted && bytes.size.toLong() > q.quotaBytes * 0.5) {
+                            _quotaWarn.value = QuotaWarning(bytes.size.toLong(), q.usedBytes, q.quotaBytes)
+                            _opStatus.value = OpStatus.Idle
+                            return@launch
+                        }
+                    }
+                    quotaWarnAccepted = false
                     val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+                    _progress.value = 10; _opStatus.value = OpStatus.Running(10)
                     api.uploadBlob(acct, sha, bytes, "application/octet-stream")
+                    _progress.value = 90; _opStatus.value = OpStatus.Running(90)
                     api.setPointer(acct, "backup_latest", sha)
+                    _progress.value = 100; _opStatus.value = OpStatus.Running(100)
                     _message.value = "nc-ok-backup"
+                    _opStatus.value = OpStatus.Success(bytes.size.toLong(), System.currentTimeMillis() - t0)
                     runCatching { settings.setCloudLast(System.currentTimeMillis()) }
                     refresh()
                 } finally {
@@ -133,11 +181,15 @@ class NotaCloudViewModel @Inject constructor(
             } catch (e: CloudHttpException) {
                 _detail.value = "${e.javaClass.simpleName}:${e.code}"
                 _message.value = if (e.code == "QUOTA_EXCEEDED") "nc-err-quota" else "nc-err:${e.code}"
+                _opStatus.value = OpStatus.Failed(_message.value ?: "nc-err")
             } catch (e: Exception) {
                 _detail.value = "${e.javaClass.simpleName}:${e.message}"
                 _message.value = "nc-err:${e.message}"
+                _opStatus.value = OpStatus.Failed(_message.value ?: "nc-err")
             } finally {
+                _progress.value = null
                 _working.value = false
+                if (_opStatus.value is OpStatus.Running) _opStatus.value = OpStatus.Idle
                 cloudMutex.unlock()
             }
         }

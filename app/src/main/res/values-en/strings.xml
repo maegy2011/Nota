@@ -1126,6 +1126,14 @@
     <string name="backup_progress_channel">Backup progress</string>
     <string name="backup_progress_title">Backing up…</string>
     <string name="backup_progress_body_fmt">%1$d%%</string>
+    <string name="backup_too_large_fmt">Backup is large (%1$s) — it may fail. Continue?</string>
+    <string name="quota_will_exceed_fmt">Would exceed quota (%1$s used of %2$s) — free space or upgrade your plan</string>
+    <string name="quota_warn_fmt">This backup (%1$s) uses over half your quota — continue?</string>
+    <string name="backup_size_fmt">%1$s / %2$s</string>
+    <string name="backup_status_running_fmt">Backing up… %1$d%%</string>
+    <string name="backup_status_running">Backing up…</string>
+    <string name="backup_status_success_fmt">✓ Done — %1$s in %2$ds</string>
+    <string name="backup_status_failed_fmt">✗ Failed — %1$s</string>
     <string name="bk_exp_title">Export .nota file</string>
     <string name="bk_res_title">Restore from .nota file</string>
 </resources>

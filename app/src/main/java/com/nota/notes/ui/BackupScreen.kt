@@ -205,9 +205,25 @@ fun BackupScreen(
                     }
                 } else {
                     // P3-C2: بطاقة ملخص + 3 طرق مصغرة قابلة للطي + روابط سفلية
+                    // Phase 2ج: نص الحجم — Drive (آخر نسخة ناجحة) والسحابة (الحصة).
+                    val driveOpSum by vm.opStatus.collectAsStateWithLifecycle()
+                    val driveSizeText = (driveOpSum as? CloudBackupViewModel.OpStatus.Success)?.let {
+                        stringResource(
+                            R.string.backup_size_fmt,
+                            fmtBytes(it.bytes),
+                            fmtBytes(com.nota.notes.data.DriveBackup.MAX_DRIVE_BYTES)
+                        )
+                    }
+                    val cloudSizeText = ncQuota?.let {
+                        stringResource(
+                            R.string.backup_size_fmt,
+                            fmtBytes(it.usedBytes), fmtBytes(it.quotaBytes)
+                        )
+                    }
                     BackupSummaryCard(
                         last, ncPointer?.updatedAt ?: 0L, fmt,
-                        working || ncWorking, { vm.backupNow() }, locked, onLocked
+                        working || ncWorking, { vm.backupNow() }, locked, onLocked,
+                        driveSizeText = driveSizeText, cloudSizeText = cloudSizeText
                     )
                     MethodSection(stringResource(R.string.bk_method_drive)) {
                         DriveCard(vm, last, freq, working, msg, fmt, locked, onLocked, advOpen = driveAdv, onAdvToggle = { driveAdv = !driveAdv })
@@ -248,7 +264,10 @@ private fun BackupSummaryCard(
     busy: Boolean,
     onBackupNow: () -> Unit,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    // Phase 2ج: نص الحجم لكل طريقة (يظهر عند توفره فقط).
+    driveSizeText: String? = null,
+    cloudSizeText: String? = null
 ) {
     val best = maxOf(lastDrive, lastCloud)
     SectionCard(stringResource(R.string.bk_sum_title), top = 0.dp, locked = locked) {
@@ -261,6 +280,23 @@ private fun BackupSummaryCard(
             else stringResource(R.string.bk_sum_none),
             style = MaterialTheme.typography.titleMedium
         )
+        // Phase 2ج: سطر الحجم — Drive والسحابة (يظهر عند توفره فقط).
+        if (driveSizeText != null) {
+            Text(
+                "Drive: $driveSizeText",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        if (cloudSizeText != null) {
+            Text(
+                stringResource(R.string.bk_log_src_ncloud) + ": $cloudSizeText",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
         Button(
             onClick = onBackupNow,
             enabled = !busy && !locked,
@@ -305,6 +341,18 @@ private fun DriveCard(
     onAdvToggle: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
+    // Phase 2ج/2د: حالة العملية + تحذير الحجم للبانر والحوار.
+    val opStatus by vm.opStatus.collectAsStateWithLifecycle()
+    val sizeWarn by vm.sizeWarn.collectAsStateWithLifecycle()
+    val prog by vm.progress.collectAsStateWithLifecycle()
+    val sw = sizeWarn
+    if (sw != null) {
+        SizeWarnDialog(
+            sizeText = fmtBytes(sw.bytes),
+            onConfirm = { vm.acceptSizeWarn() },
+            onDismiss = { vm.dismissSizeWarn() }
+        )
+    }
     val keep by vm.keepCount.collectAsStateWithLifecycle()
     val cloudPreview by vm.preview.collectAsStateWithLifecycle()
     val shrinkPct by vm.shrinkWarn.collectAsStateWithLifecycle()
@@ -348,6 +396,34 @@ private fun DriveCard(
                 else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp)
             )
+        }
+        // Phase 2د: بانر الحالة المضمّن — تقدم/نجاح/فشل + إعادة، يختفي بعد 10 ثوانٍ.
+        when (val st = opStatus) {
+            is CloudBackupViewModel.OpStatus.Running -> BackupOpBanner(
+                running = true, pct = st.pct ?: prog,
+                successText = null, failText = null,
+                onDismiss = { vm.clearOpStatus() }
+            )
+            is CloudBackupViewModel.OpStatus.Success -> BackupOpBanner(
+                running = false, pct = null,
+                successText = stringResource(
+                    R.string.backup_status_success_fmt,
+                    fmtBytes(st.bytes), st.millis / 1000
+                ),
+                failText = null,
+                onDismiss = { vm.clearOpStatus() }
+            )
+            is CloudBackupViewModel.OpStatus.Failed -> BackupOpBanner(
+                running = false, pct = null, successText = null,
+                failText = stringResource(
+                    R.string.backup_status_failed_fmt,
+                    if (st.msg == "err:backup-running") stringResource(R.string.backup_already_running)
+                    else stringResource(R.string.cloud_failed)
+                ),
+                onRetry = { vm.backupNow() },
+                onDismiss = { vm.clearOpStatus() }
+            )
+            else -> {}
         }
     }
     SectionCard(stringResource(R.string.cloud_sec_actions), locked = locked) {
@@ -575,6 +651,18 @@ private fun NotaCloudCard(
     onLocked: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
+    // Phase 2ج/2د: حالة العملية + تحذير الحصة للبانر والحوار.
+    val ncOp by ncvm.opStatus.collectAsStateWithLifecycle()
+    val ncQuotaWarn by ncvm.quotaWarn.collectAsStateWithLifecycle()
+    val ncProg by ncvm.progress.collectAsStateWithLifecycle()
+    val qw = ncQuotaWarn
+    if (qw != null) {
+        QuotaWarnDialog(
+            sizeText = fmtBytes(qw.bytes),
+            onConfirm = { ncvm.acceptQuotaWarn() },
+            onDismiss = { ncvm.dismissQuotaWarn() }
+        )
+    }
     SectionCard(stringResource(R.string.ncloud_title), locked = locked) {
         Text(
             stringResource(R.string.ncloud_sub),
@@ -643,6 +731,14 @@ private fun NotaCloudCard(
                     }
                     nm == "nc-err-quota" -> stringResource(R.string.ncloud_err_quota)
                     nm == "nc-err-running" -> stringResource(R.string.backup_already_running)
+                    nm == "nc-err-quota-will-exceed" -> {
+                        val qq = ncQuota
+                        if (qq != null) stringResource(
+                            R.string.quota_will_exceed_fmt,
+                            fmtBytes(qq.usedBytes), fmtBytes(qq.quotaBytes)
+                        )
+                        else stringResource(R.string.ncloud_err_quota)
+                    }
                     // المرحلة 1ج: رفض رفع الوسائط لغير المشتركين (فحص داخل الـ VM)
                     nm == "nc-err-pro-required" -> stringResource(R.string.ncloud_err_pro_required)
                     nm == "nc-err-nokey" -> stringResource(R.string.ncloud_err_nokey)
@@ -657,6 +753,44 @@ private fun NotaCloudCard(
                 else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            // Phase 2د: بانر الحالة المضمّن لسحابة نوتا — تقدم/نجاح/فشل + إعادة.
+            when (val st = ncOp) {
+                is NotaCloudViewModel.OpStatus.Running -> BackupOpBanner(
+                    running = true, pct = st.pct ?: ncProg,
+                    successText = null, failText = null,
+                    onDismiss = { ncvm.clearOpStatus() }
+                )
+                is NotaCloudViewModel.OpStatus.Success -> BackupOpBanner(
+                    running = false, pct = null,
+                    successText = stringResource(
+                        R.string.backup_status_success_fmt,
+                        fmtBytes(st.bytes), st.millis / 1000
+                    ),
+                    failText = null,
+                    onDismiss = { ncvm.clearOpStatus() }
+                )
+                is NotaCloudViewModel.OpStatus.Failed -> BackupOpBanner(
+                    running = false, pct = null, successText = null,
+                    failText = stringResource(
+                        R.string.backup_status_failed_fmt,
+                        when (st.msg) {
+                            "nc-err-running" -> stringResource(R.string.backup_already_running)
+                            "nc-err-quota-will-exceed" -> {
+                                val qq = ncQuota
+                                if (qq != null) stringResource(
+                                    R.string.quota_will_exceed_fmt,
+                                    fmtBytes(qq.usedBytes), fmtBytes(qq.quotaBytes)
+                                )
+                                else stringResource(R.string.ncloud_err_quota)
+                            }
+                            else -> stringResource(R.string.ncloud_failed)
+                        }
+                    ),
+                    onRetry = { ncvm.backupNow(ncPro) },
+                    onDismiss = { ncvm.clearOpStatus() }
+                )
+                else -> {}
+            }
             // P0-2 (أكتوبر 2026): بطاقة توجيه عند رفض الرفع بلا مفتاح — الزر في بطاقة المفتاح أدناه.
             if (nm == "nc-err-nokey-upload") {
                 Text(

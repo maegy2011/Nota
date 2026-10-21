@@ -1121,6 +1121,14 @@
     <string name="backup_progress_channel">تقدم النسخ الاحتياطي</string>
     <string name="backup_progress_title">جاري النسخ…</string>
     <string name="backup_progress_body_fmt">%1$d%%</string>
+    <string name="backup_too_large_fmt">النسخة كبيرة (%1$s) — قد تفشل. متابعة؟</string>
+    <string name="quota_will_exceed_fmt">ستتجاوز الحصة (المستخدم %1$s من %2$s) — حرّر مساحة أو رقِّ خطتك</string>
+    <string name="quota_warn_fmt">النسخة (%1$s) تستهلك أكثر من نصف حصتك — متابعة؟</string>
+    <string name="backup_size_fmt">%1$s / %2$s</string>
+    <string name="backup_status_running_fmt">جارٍ النسخ… %1$d%%</string>
+    <string name="backup_status_running">جارٍ النسخ…</string>
+    <string name="backup_status_success_fmt">✓ نجح — %1$s في %2$d ث</string>
+    <string name="backup_status_failed_fmt">✗ فشل — %1$s</string>
     <string name="bk_exp_title">تصدير ملف .nota</string>
     <string name="bk_res_title">استعادة من ملف .nota</string>
 </resources>
