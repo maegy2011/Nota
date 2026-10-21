@@ -135,6 +135,7 @@ class NotaCloudApi @Inject constructor(
     }
 
     // Phase 4ج: حذف نسخة سحابية (pointer + blob) — لا يمس .nota المحلي
+    // (تُستخدم أيضًا في 6أ لحذف كل النسخ عند حذف الحساب — إن وُجدت آلية سرد لاحقًا)
     suspend fun deletePointer(accountId: String, name: String) = withTokenRetry { token ->
         withContext(Dispatchers.IO) {
             val enc = URLEncoder.encode(accountId, "UTF-8")
@@ -147,6 +148,24 @@ class NotaCloudApi @Inject constructor(
             val enc = URLEncoder.encode(accountId, "UTF-8")
             val c = conn("$CLOUD_BASE/v1/cloud/blobs/$sha256?accountId=$enc", "DELETE", 10_000, token)
             try { val body = readBody(c); if (c.responseCode !in 200..299 && c.responseCode != 404) throw errOf(c.responseCode, body, "delete-blob") } finally { c.disconnect() }
+        }
+    }
+
+    // 6أ: حذف الحساب سحابيًا — يُستدعى أولًا عند التنفيذ النهائي (بعد 14 يومًا)، ثم الحذف المحلي.
+    // TODO(phase6-backend): endpoint حقيقي DELETE /v1/account — حاليًا يُرجع false دائمًا (لا endpoint بعد).
+    // القاعدة: الفشل هنا لا يوقف الحذف المحلي أبدًا (يُسجَّل ويُستمر).
+    suspend fun deleteAccount(accountId: String): Boolean = withTokenRetry { token ->
+        withContext(Dispatchers.IO) {
+            val enc = URLEncoder.encode(accountId, "UTF-8")
+            val c = conn("$CLOUD_BASE/v1/account?accountId=$enc", "DELETE", 10_000, token)
+            try {
+                val body = readBody(c)
+                if (c.responseCode == 501 || c.responseCode == 404) return@withContext false // endpoint غير موجود بعد
+                if (c.responseCode !in 200..299) throw errOf(c.responseCode, body, "delete-account")
+                true
+            } finally {
+                c.disconnect()
+            }
         }
     }
 

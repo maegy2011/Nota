@@ -6,6 +6,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import android.util.Log
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 
@@ -18,6 +19,16 @@ class DeletionWorker(appCtx: Context, params: WorkerParameters) : CoroutineWorke
         val settings = SettingsStore(applicationContext)
         val requested = settings.deletionRequestedAt.first()
         if (AccountDeletion.isDue(requested)) {
+            // 6أ: السحابة أولًا (best-effort) — الفشل يُسجَّل ولا يوقف الحذف المحلي أبدًا.
+            runCatching {
+                val store = AccountStore(applicationContext)
+                val acct = store.currentAccountId()
+                if (!acct.isNullOrBlank()) {
+                    val api = NotaCloudApi(com.nota.notes.auth.IdTokenProvider(store))
+                    val ok = api.deleteAccount(acct)
+                    Log.i("DeletionWorker", "cloud deleteAccount acct=$acct ok=$ok")
+                }
+            }.onFailure { e -> Log.w("DeletionWorker", "cloud delete skipped: ${e.message}") }
             // الحذف النهائي المحلي — نفس مسار factoryReset عبر مسح المخازن والملفات.
             // ملاحظة: Keystore/DB تُمسح عند فتح التطبيق التالي عبر مسار مخصص في AuthViewModel.
             settings.clearDeletionRequest()

@@ -3,8 +3,9 @@ package com.nota.notes.data
 // P3-B2 — حذف الحساب: منطق نقي يُختبر على JVM (بلا Context).
 // فترة السماح 14 يومًا — خلالها يُعرض "حسابك في طريقه للحذف — X أيام متبقية" + زر إلغاء.
 // بعدها الحذف النهائي عبر WorkManager (فحص دوري).
-// ملاحظة backend موثقة: لا يوجد endpoint لحذف الحساب server-side في NotaCloudApi
-// (quota/blobs/pointers فقط) — يُطبَّق المحلي + Firebase فقط، والسحابة "تنتظر محمد/backend".
+// ملاحظة backend موثقة: endpoint حذف الحساب (DELETE /v1/account) غير موجود سيرفريًا بعد —
+// التطبيق يستدعيه best-effort من DeletionWorker (6أ: NotaCloudApi.deleteAccount) ولا يتوقف على فشله.
+// يُطبَّق المحلي + Firebase فقط، والسحابة "تنتظر backend".
 object AccountDeletion {
     const val GRACE_MS: Long = 14L * 24 * 3600 * 1000
     const val CONFIRM_PHRASE_AR = "احذف حسابي"
