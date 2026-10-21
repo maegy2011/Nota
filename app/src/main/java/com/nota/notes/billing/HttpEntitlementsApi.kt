@@ -17,6 +17,8 @@ private const val ENTITLEMENTS_BASE = "https://mohamedadel.cfd/nota-api"
 
 // سؤال الاستحقاق الحي: GET /v1/entitlements?accountId= — نفس أسلوب HttpURLConnection في GoogleAuthManager.
 // أي خطأ شبكة يرمي استثناء — الـ Repo يعالج الأوفلاين بالكاش أصلًا.
+// TODO(phase6-backend): POST /v1/purchases — يستقبل {accountId, productId, purchaseToken} بإثبات Firebase،
+// يتحقق من الإيصال لدى Play، ثم يرقّي الاستحقاق. التطبيق جاهز (reportPurchase) — ينقص endpoint السيرفر.
 @Singleton
 class HttpEntitlementsApi @Inject constructor(
     private val tokens: com.nota.notes.auth.IdTokenProvider

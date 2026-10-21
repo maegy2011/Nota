@@ -14,6 +14,8 @@ private const val REGISTER_URL = "https://mohamedadel.cfd/nota-api/v1/users/regi
 
 // التسجيل التلقائي الإيدمبوتنت: POST {accountId} + توكن Firebase الموثق — السيرفر يربط الحساب
 // بصاحب التوكن (المرحلة 3). يُستخدم عند الدخول وفي EntitlementsRepo.refresh ليكون النظام شافيًا ذاتيًا.
+// TODO(phase6-backend): إبلاغ المشتريات POST /v1/purchases — يُستدعى من reportPurchase بعد نجاح الدفع
+// ( gateway.reportPurchase جاهز في التطبيق — ينقص endpoint السيرفر والتحقق من الإيصال).
 @Singleton
 class ServerRegister @Inject constructor(
     private val tokens: com.nota.notes.auth.IdTokenProvider
