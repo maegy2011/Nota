@@ -13,4 +13,11 @@ class FakeBilling @Inject constructor() : BillingGateway {
             BillingResult.Failed("unknown product: $productId")
         }
     }
+
+    // 5أ: لا مشتريات سابقة في mock — تُستخدم فقط لاختبار مسار الاستعادة بلا عناصر
+    override suspend fun queryPurchases(): List<PurchaseInfo> = emptyList()
+
+    // 5أ: محاكاة نجاح الإبلاغ — السيرفر الحقيقي (POST /v1/purchases) غير موجود بعد
+    override suspend fun reportPurchase(purchaseToken: String, productId: String): Result<Unit> =
+        Result.success(Unit)
 }

@@ -2,9 +2,22 @@ package com.nota.notes.billing
 
 // بوابة الفوترة — التطبيق يبني ضد هذه الواجهة فقط، لا ضد جوجل مباشرة.
 // النسخة الحقيقية (Play Billing) تُحقن في نكهة play لاحقًا، والوهمية في mock فقط.
+// عملية شراء سابقة مستعادة من المتجر — تُبلَّغ للسيرفر عبر reportPurchase قبل الاعتماد عليها
+// (لا تُعتمد وحدها: السيرفر هو مصدر الاستحقاق الوحيد)
+data class PurchaseInfo(
+    val productId: String,
+    val purchaseToken: String
+)
+
 interface BillingGateway {
     // إطلاق تدفق الشراء لمنتج — تُرجع النتيجة بلا رمي استثناء
     suspend fun launchPurchase(productId: String): BillingResult
+
+    // 5أ: استعادة المشتريات السابقة (تُستدعى عند بدء التطبيق) — فارغة حتى ربط Play
+    suspend fun queryPurchases(): List<PurchaseInfo>
+
+    // 5أ: إبلاغ السيرفر بشراء ناجح — يُنفَّذ فعليًا مع POST /v1/purchases (المرحلة 6 تحتاجه backend)
+    suspend fun reportPurchase(purchaseToken: String, productId: String): Result<Unit>
 
     companion object {
         const val PRODUCT_PRO_MONTHLY = "nota_pro_monthly"
