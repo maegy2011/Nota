@@ -195,6 +195,8 @@ class NotesViewModel @Inject constructor(
     }
     // سجل الاستعادة + التراجع بالنقل للسلة (27 سبتمبر 2026)
     val restoreLog = repo.restoreLog()
+    // P3-3د: لقطة السجل لاختيار أحدث سجل بعد الاستعادة (snackbar التراجع).
+    suspend fun restoreLogOnce() = repo.restoreLogOnce()
     suspend fun undoRestore(id: Long): Int {
         val rec = repo.restoreLogOnce().find { it.id == id } ?: return 0
         if (rec.undone || rec.addedIds.isEmpty()) return 0
