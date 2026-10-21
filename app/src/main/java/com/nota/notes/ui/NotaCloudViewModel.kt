@@ -110,10 +110,45 @@ class NotaCloudViewModel @Inject constructor(
         return entitlements.cached.first().pro
     }
 
-    // النسخ لسحابة نوتا: النص دائمًا + الوسائط (صور/صوت/رسوم/خلفيات) للمشتركين فقط —
+    // 6ب: الرفع المجزأ مع الاستئناف — true تعني اكتملت كل القطع سيرفريًا (ثم pointer كالمعتاد).
+    // false تعني: ملف صغير، أو endpoint غائب، أو خطأ شبكة — والمسار الكامل يتولى (بلا كسر).
+    // الحالة تُحفظ في DataStore (sha + offset) فتنجو من قتل التطبيق وتُستأنف في الرفعة التالية.
+    private suspend fun uploadChunkedOrFull(acct: String, sha: String, bytes: ByteArray): Boolean {
+        val chunkSize = 1024 * 1024
+        if (bytes.size <= chunkSize) return false
+        if (settings.cloudUploadNoSupport()) return false
+        val savedSha = settings.cloudUploadSha()
+        var off = if (savedSha == sha) settings.cloudUploadOffset().coerceIn(0L, bytes.size.toLong()) else 0L
+        if (off == 0L) settings.setCloudUpload(sha, 0L)
+        return try {
+            while (off < bytes.size) {
+                val end = minOf(off + chunkSize, bytes.size.toLong())
+                val chunk = bytes.copyOfRange(off.toInt(), end.toInt())
+                off = api.uploadChunk(acct, sha, off, chunk)
+                settings.setCloudUpload(sha, off)
+                val pct = (10 + (off * 80 / bytes.size)).toInt()
+                _progress.value = pct; _opStatus.value = OpStatus.Running(pct)
+            }
+            settings.clearCloudUpload()
+            true
+        } catch (e: CloudHttpException) {
+            if (e.code == "NO_CHUNK_ENDPOINT") {
+                settings.setCloudUploadNoSupport(true)
+                settings.clearCloudUpload()
+            }
+            // خطأ حقيقي mid-upload: الحالة محفوظة للاستئناف لاحقًا، والرفع الكامل يتولى الآن.
+            false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     // الوسائط مشفرة بمفتاح المستخدم الخاص وحده (CloudKeyStore) — صفر معرفة.
     // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
     // P0-2 (أكتوبر 2026): بلا مفتاح سحابة = رفض كامل قبل أي شبكة — لا نص عادي على السيرفر أبدًا.
+    // النسخ لسحابة نوتا: النص دائمًا + الوسائط (صور/صوت/رسوم/خلفيات) للمشتركين فقط —
+    // الوسائط مشفرة بمفتاح المستخدم الخاص وحده (CloudKeyStore) — صفر معرفة.
+    // PIN الشاشة قفل فقط ولا يدخل هنا إطلاقًا.
     fun backupNow(allowMedia: Boolean = false) {
         pendingMedia = allowMedia
         if (!cloudMutex.tryLock()) {
@@ -174,7 +209,12 @@ class NotaCloudViewModel @Inject constructor(
                     quotaWarnAccepted = false
                     val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
                     _progress.value = 10; _opStatus.value = OpStatus.Running(10)
-                    api.uploadBlob(acct, sha, bytes, "application/octet-stream")
+                    // 6ب: محاولة الرفع المجزأ أولًا (تعمل فقط بوجود endpoint — وإلا رجوع صامت للكامل).
+                    // السلوك الافتراضي بلا backend مطابق تمامًا للسابق: PUT واحد ثم pointer.
+                    if (!uploadChunkedOrFull(acct, sha, bytes)) {
+                        api.uploadBlob(acct, sha, bytes, "application/octet-stream")
+                        runCatching { settings.clearCloudUpload() }
+                    }
                     _progress.value = 90; _opStatus.value = OpStatus.Running(90)
                     api.setPointer(acct, "backup_latest", sha)
                     _progress.value = 100; _opStatus.value = OpStatus.Running(100)

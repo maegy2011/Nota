@@ -153,8 +153,20 @@ class SettingsStore @Inject constructor(@ApplicationContext private val ctx: Con
     suspend fun setCloudLast(v: Long) { ctx.settingsStore.edit { it[K_CLOUD_LAST] = v } }
     // Phase 4a: حجم آخر نسخة ناجحة (بايت) — 0 = غير معروف
     private val K_SIZE_LAST = longPreferencesKey("size_last_backup")
+    // 6ب: حالة الرفع المجزأ — بصمة النسخة + الإزاحة المحفوظة + علم عدم دعم الـ endpoint.
+    // تُمسح عند نجاح الرفع (مجزأ أو كامل) أو تغير النسخة — لا تبقى حالة قديمة أبدًا.
+    private val K_CLOUD_UPLOAD_SHA = stringPreferencesKey("cloud_upload_sha")
+    private val K_CLOUD_UPLOAD_OFFSET = longPreferencesKey("cloud_upload_offset")
+    private val K_CLOUD_UPLOAD_NOSUPPORT = booleanPreferencesKey("cloud_upload_nosupport")
     val sizeLast: Flow<Long> = ctx.settingsStore.data.map { it[K_SIZE_LAST] ?: 0L }
     suspend fun setSizeLast(v: Long) { ctx.settingsStore.edit { it[K_SIZE_LAST] = v } }
+    // 6ب: getters/setters لحالة الرفع المجزأ — تُقرأ عند بدء الرفع فقط (لا مراقبة مستمرة).
+    suspend fun cloudUploadSha(): String? = ctx.settingsStore.data.map { it[K_CLOUD_UPLOAD_SHA] }.first()
+    suspend fun cloudUploadOffset(): Long = ctx.settingsStore.data.map { it[K_CLOUD_UPLOAD_OFFSET] ?: 0L }.first()
+    suspend fun cloudUploadNoSupport(): Boolean = ctx.settingsStore.data.map { it[K_CLOUD_UPLOAD_NOSUPPORT] ?: false }.first()
+    suspend fun setCloudUpload(sha: String, offset: Long) { ctx.settingsStore.edit { it[K_CLOUD_UPLOAD_SHA] = sha; it[K_CLOUD_UPLOAD_OFFSET] = offset } }
+    suspend fun setCloudUploadNoSupport(v: Boolean) { ctx.settingsStore.edit { it[K_CLOUD_UPLOAD_NOSUPPORT] = v } }
+    suspend fun clearCloudUpload() { ctx.settingsStore.edit { it.remove(K_CLOUD_UPLOAD_SHA); it.remove(K_CLOUD_UPLOAD_OFFSET) } }
     val cloudHash: Flow<String?> = ctx.settingsStore.data.map { it[K_CLOUD_HASH] }
     suspend fun setCloudHash(v: String) { ctx.settingsStore.edit { it[K_CLOUD_HASH] = v } }
     val cloudKeep: Flow<Int> = ctx.settingsStore.data.map { (it[K_CLOUD_KEEP] ?: 5).coerceIn(1, MAX_CLOUD_KEEP) }

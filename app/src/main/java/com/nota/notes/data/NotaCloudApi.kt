@@ -169,6 +169,29 @@ class NotaCloudApi @Inject constructor(
         }
     }
 
+    // 6ب: رفع مجزأ قابل للاستئناف — PUT /v1/cloud/blobs/{sha}/chunks?offset= بجسم القطعة فقط.
+    // TODO(phase6-backend): endpoint حقيقي — حاليًا 404/501 متوقعة فيُترجمت لرمز صريح يفهمه الـ VM.
+    // القاعدة: غياب الـ endpoint = رجوع صامت للرفع الكامل، لا فشل للمستخدم أبدًا.
+    suspend fun uploadChunk(accountId: String, sha256: String, offset: Long, chunk: ByteArray): Long =
+        withTokenRetry { token ->
+            withContext(Dispatchers.IO) {
+                val enc = URLEncoder.encode(accountId, "UTF-8")
+                val c = conn("$CLOUD_BASE/v1/cloud/blobs/$sha256/chunks?accountId=$enc&offset=$offset", "PUT", 60_000, token)
+            try {
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/octet-stream")
+                c.outputStream.use { it.write(chunk) }
+                val body = readBody(c)
+                if (c.responseCode == 404 || c.responseCode == 501)
+                    throw CloudHttpException("NO_CHUNK_ENDPOINT", "chunked upload not supported", 0L, 0L)
+                if (c.responseCode !in 200..299) throw errOf(c.responseCode, body, "upload-chunk")
+                offset + chunk.size.toLong()
+            } finally {
+                c.disconnect()
+            }
+            }
+        }
+
     // null = لا نسخة بعد (404) — ليست خطأ
     suspend fun getPointer(accountId: String, name: String): CloudPointer? = withTokenRetry { token ->
         withContext(Dispatchers.IO) {
