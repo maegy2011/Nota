@@ -5,6 +5,8 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nota.notes.data.SettingsStore
+import com.nota.notes.data.ServerRegister
+import com.nota.notes.data.AccountStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,7 +16,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val store: SettingsStore) : ViewModel() {
+class SettingsViewModel @Inject constructor(
+    private val store: SettingsStore,
+    private val serverRegister: ServerRegister,
+    private val accounts: AccountStore
+) : ViewModel() {
     val theme = store.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
     val appTheme = store.appTheme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "warm")
     val lang = store.lang.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
@@ -87,7 +93,15 @@ class SettingsViewModel @Inject constructor(private val store: SettingsStore) : 
     val trialOffered = store.trialOffered.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val trialStart = store.trialStart.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
     fun dismissTrialOffer() = viewModelScope.launch { store.dismissTrialOffer() }
-    fun startTrial() = viewModelScope.launch { store.startTrial() }
+    // 6ج: بدء التجربة محليًا فورًا (fail-open — التجربة حق للمستخدم)، وإبلاغ السيرفر best-effort
+    // ليتذكر استهلاكها (POST /v1/trial/start — TODO backend). الفشل لا يمنع التجربة أبدًا.
+    fun startTrial() = viewModelScope.launch {
+        store.startTrial()
+        runCatching {
+            val acct = accounts.currentAccountId()
+            if (!acct.isNullOrBlank()) serverRegister.reportTrialStart(acct)
+        }.onFailure { }
+    }
     // الذكاء الاصطناعي BYOK (27 سبتمبر 2026): المفتاح يُختم بـ TokenVault قبل التخزين ولا يُقرأ مكشوفًا إلا عند الاستدعاء
     val aiEndpoint = store.aiEndpoint.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.nota.notes.data.AiRewriteService.DEFAULT_ENDPOINT)
     val aiModel = store.aiModel.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.nota.notes.data.AiRewriteService.DEFAULT_MODEL)

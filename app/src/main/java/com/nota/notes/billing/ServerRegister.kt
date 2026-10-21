@@ -48,4 +48,13 @@ class ServerRegister @Inject constructor(
         }
         false
     }
+
+    // 6ج: إبلاغ بدء التجربة — POST /v1/trial/start {accountId} + توكن Firebase.
+    // TODO(phase6-backend): endpoint حقيقي — حاليًا no-op صادق (false) والسيرفر لا يعرف.
+    // القاعدة: الفشل/الغياب لا يمنع التجربة المحلية أبدًا (fail-open للتجربة فقط).
+    suspend fun reportTrialStart(accountId: String): Boolean = withContext(Dispatchers.IO) {
+        // TODO: POST /v1/trial/start {accountId} عند توفر الـ endpoint — ثم يرد trialUsed في /v1/entitlements
+        Log.i(TAG, "reportTrialStart: no backend endpoint yet (TODO phase6) acct=$accountId")
+        false
+    }
 }

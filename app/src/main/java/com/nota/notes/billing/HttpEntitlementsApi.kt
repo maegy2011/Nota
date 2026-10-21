@@ -76,6 +76,8 @@ class HttpEntitlementsApi @Inject constructor(
             raw is String && raw.isNotBlank() -> runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
             else -> null
         }
-        return Entitlement(pro = pro, features = features, expiresAt = expiresAt)
+        // 6ج: trialUsed سيرفريًا — true تعني استُهلكت التجربة من قبل (تمنع الالتفاف بإعادة التثبيت).
+        val trialUsed = obj.optBoolean("trialUsed", false)
+        return Entitlement(pro = pro, features = features, expiresAt = expiresAt, trialUsed = trialUsed)
     }
 }

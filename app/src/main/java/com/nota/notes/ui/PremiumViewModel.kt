@@ -67,7 +67,15 @@ class PremiumViewModel @Inject constructor(
         else -> EntitlementSource.NONE
     }
 
-    // نسخة متزامنة من isPro() للاستخدام من ViewModels أخرى (فحص Pro داخل backupNow والت toggles) —
+    // 6ج: trial سيرفري يغلب المحلي — إن استُهلكت التجربة على السيرفر، لا تجربة محلية أبدًا.
+    // تُستدعى بعد كل استحقاق جديد وقبل أي تفعيل محلي (fail-closed للتجربة فقط، لا للشراء).
+    private fun applyServerTrial(ent: Entitlement) {
+        if (ent.trialUsed && _trialActive.value) {
+            _trialActive.value = false
+            _source.value = resolveSource(fromServer = false)
+        }
+    }
+
     // المصدر الوحيد للتعريف، بلا تكرار لمنطق OR في أي مكان آخر.
     fun isProNow(): Boolean = _trialActive.value || _entitlement.value?.pro == true
 
@@ -78,7 +86,8 @@ class PremiumViewModel @Inject constructor(
     private val _trialActive = MutableStateFlow(false)
     val trialActive: StateFlow<Boolean> = _trialActive.asStateFlow()
     fun setTrialActive(v: Boolean) {
-        _trialActive.value = v
+        // 6ج: لا تجربة محلية إن حسمها السيرفر مستهلكة — يُحترم trialUsed فوق رغبة الواجهة.
+        _trialActive.value = if (v && _entitlement.value?.trialUsed == true) false else v
         // المرحلة 1أ: بدء التجربة = TRIAL، انتهاؤها = إعادة الحساب من الاستحقاق المخزن
         _source.value = resolveSource(fromServer = false)
     }
@@ -101,7 +110,7 @@ class PremiumViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             runCatching { repo.refresh() }
-                .onSuccess { _entitlement.value = it; _authExpired.value = false; _source.value = resolveSource(fromServer = false) }
+                .onSuccess { _entitlement.value = it; _authExpired.value = false; applyServerTrial(it); _source.value = resolveSource(fromServer = false) }
                 .onFailure { e ->
                     if (e is AuthExpiredException) { _authExpired.value = true; _source.value = EntitlementSource.AUTH_EXPIRED }
                     else { _entitlement.value = Entitlement.FREE; _source.value = resolveSource(fromServer = false) }
@@ -116,7 +125,7 @@ class PremiumViewModel @Inject constructor(
         viewModelScope.launch {
             _refreshing.value = true
             runCatching { repo.refresh(force = true) }
-                .onSuccess { _entitlement.value = it; _authExpired.value = false; _source.value = resolveSource(fromServer = true) }
+                .onSuccess { _entitlement.value = it; _authExpired.value = false; applyServerTrial(it); _source.value = resolveSource(fromServer = true) }
                 .onFailure { e -> if (e is AuthExpiredException) { _authExpired.value = true; _source.value = EntitlementSource.AUTH_EXPIRED } }
             _refreshing.value = false
         }

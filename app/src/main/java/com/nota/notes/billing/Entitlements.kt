@@ -5,7 +5,10 @@ package com.nota.notes.billing
 data class Entitlement(
     val pro: Boolean = false,
     val features: List<String> = emptyList(),
-    val expiresAt: Long? = null
+    val expiresAt: Long? = null,
+    // 6ج: استُخدمت التجربة سيرفريًا من قبل — تمنع إعادة التجربة المحلية بعد إعادة التثبيت.
+    // افتراضي false (السيرفرات القديمة بلا حقل تتصرف كأن التجربة لم تُستخدم).
+    val trialUsed: Boolean = false
 ) {
     companion object {
         const val FEATURE_FOLDERS = "folders"
