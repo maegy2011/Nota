@@ -79,6 +79,27 @@ class BackupCodecTest {
         assertThat(root.getJSONObject("meta").optString("sha256")).isEqualTo(expect)
     }
 
+    @Test fun `noteJson and noteOf roundtrip preserves full note`() {
+        val n = BackupNote(id = "5", title = "t", body = "b", createdAt = 1700000000000L,
+            updatedAt = 1700000001000L, color = 2, pinned = true, folder = "Work",
+            tags = listOf("a"), tasks = listOf(BackupTask("do", true)))
+        val back = BackupCodec.noteOf(BackupCodec.noteJson(n))
+        assertThat(back).isNotNull()
+        assertThat(back!!.id).isEqualTo("5")
+        assertThat(back.title).isEqualTo("t")
+        assertThat(back.folder).isEqualTo("Work")
+        assertThat(back.tasks).hasSize(1)
+    }
+
+    @Test fun `sameBackupContent ignores id but detects edits`() {
+        val a = BackupNote(id = "1", title = "t", body = "b", createdAt = 10L, updatedAt = 20L)
+        val sameId2 = a.copy(id = "2")
+        assertThat(BackupCodec.sameBackupContent(a, sameId2)).isTrue()
+        assertThat(BackupCodec.sameBackupContent(a, a.copy(title = "t2"))).isFalse()
+        assertThat(BackupCodec.sameBackupContent(a, a.copy(updatedAt = 21L))).isFalse()
+        assertThat(BackupCodec.sameBackupContent(a, a.copy(folder = "F"))).isFalse()
+    }
+
     @Test fun `preview v4 returns version and sha`() {
         val json = BackupCodec.encode(listOf(note("1", "p")), emptyList(), "1.0")
         val meta = BackupCodec.preview(json)

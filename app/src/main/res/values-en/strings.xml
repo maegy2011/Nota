@@ -144,6 +144,13 @@
     <string name="bk_undone">Undone ✅</string>
     <string name="bk_undo_fmt">Moved %1$d notes to trash — recoverable for 30 days</string>
     <string name="bk_preview_stale">⚠️ This backup is older than your current data — merging may bring back deleted items</string>
+    <!-- P3-3b: conflict policy (default: keep local + log) -->
+    <string name="restore_conflicts_fmt">%1$d conflicts — need your decision</string>
+    <string name="conflict_keep_local">Keep local</string>
+    <string name="conflict_take_remote">Take from backup</string>
+    <string name="conflict_keep_both">Keep both</string>
+    <string name="conflict_apply_all">Apply to all</string>
+    <string name="conflict_detail_fmt">Local: %1$s • Backup: %2$s</string>
     <string name="cloud_verify_failed">Upload verification failed — the suspect copy was deleted from cloud, retry</string>
     <string name="cloud_shrink_title">Backup much smaller</string>
     <string name="cloud_shrink_msg">The new one is only %1$d%% of the previous — accidental mass delete? Continuing uploads it, cancelling keeps cloud as is</string>

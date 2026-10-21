@@ -44,6 +44,16 @@ data class BackupNote(
 // مجلد واحد في النسخة (v3): الاسم + اللون — يُعاد إنشاؤه عند الاستعادة إن غاب
 data class BackupFolder(val name: String, val color: Int = 0)
 
+// P3-3ب: تعارض دمج واحد — نفس id المحلي بمحتوى مختلف عن النسخة.
+data class BackupConflict(
+    val id: String,
+    val localTitle: String,
+    val remoteTitle: String,
+    val localUpdatedAt: Long,
+    val remoteUpdatedAt: Long,
+    val remote: BackupNote
+)
+
 // بطاقة النسخة (v3): تُعرض معاينة قبل الاستعادة — بلا فك كامل
 // P3-3أ: version + sha256 اختياري (كشف تلف أقوى) — يُكتب عند التصدير ويُتجاهل عند الفك بلا كسر.
 data class BackupMeta(val count: Int, val createdAt: Long, val appVersion: String, val version: Int = 4, val sha256: String? = null)
@@ -193,6 +203,24 @@ object BackupCodec {
         }
         return out
     }
+
+    // P3-3ب: تعارض الدمج — نفس id بمحتوى مختلف. السياسة الافتراضية (قرار محمد): احتفظ بالمحلي + سجّل.
+    // remote تُحفظ كاملة في سجل الاستعادة لتمكين "خذ من النسخة" / "احتفظ بالاثنين" لاحقًا.
+    // P3-3ب: ملاحظة واحدة ↔ JSON — عبر نفس مسار encode/decode (مصدر واحد، بلا ازدواج منطق).
+    fun noteJson(n: BackupNote): JSONObject {
+        val root = JSONObject(encode(listOf(n)))
+        return root.getJSONArray("notes").getJSONObject(0)
+    }
+    fun noteOf(o: JSONObject): BackupNote? = runCatching {
+        val root = JSONObject().put("app", "nota").put("v", V)
+            .put("notes", JSONArray().put(o))
+        decode(root.toString()).firstOrNull()
+    }.getOrNull()
+    // مقارنة المحتوى المؤثر للتعارض — الحقول التعريفية (id) خارج المقارنة عمدًا.
+    fun sameBackupContent(a: BackupNote, b: BackupNote): Boolean =
+        a.title == b.title && a.body == b.body && a.createdAt == b.createdAt &&
+            a.updatedAt == b.updatedAt && a.color == b.color && a.archivedAt == b.archivedAt &&
+            a.pinned == b.pinned && a.folder == b.folder
 
     private const val NotePalettePreviewMax = 7 // أعلى فهرس في لوحة الألوان
 }

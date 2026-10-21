@@ -329,7 +329,7 @@ class CloudBackupViewModel @Inject constructor(
                 repo.safetySnapshot()
                 val r = repo.restoreMerge(BackupCodec.decode(json), BackupCodec.foldersOf(json))
                 runCatching {
-                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "drive", added = r.added, skipped = r.skipped, addedIds = r.addedIds))
+                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "drive", added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
                 }
                 runCatching { ReminderScheduler.rescheduleAll(ctx) }
                 clearPreview()

@@ -926,6 +926,8 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
     val log by vm.restoreLog.collectAsStateWithLifecycle(initialValue = emptyList())
     var undoMsg by remember { mutableStateOf<String?>(null) }
     var undoBusy by remember { mutableStateOf(false) }
+    // P3-3ب: حالة حل التعارضات (تمنع النقر المزدوج أثناء الكتابة).
+    var resolving by remember { mutableStateOf(false) }
     SectionCard(stringResource(R.string.bk_log_title), locked = locked) {
         if (log.isEmpty()) {
             Text(
@@ -974,6 +976,90 @@ private fun RestoreLogCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                             },
                             enabled = !undoBusy && !locked
                         ) { Text(stringResource(R.string.bk_undo)) }
+                    }
+                }
+                // P3-3ب: بطاقة التعارضات — الافتراضي المحفوظ (محلي) + قرار المستخدم لكل تعارض.
+                if (rec.conflicts.isNotEmpty() && !rec.undone) {
+                    var showConflicts by remember(rec.id) { mutableStateOf(false) }
+                    TextButton(
+                        onClick = { showConflicts = !showConflicts },
+                        enabled = !resolving && !locked,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.restore_conflicts_fmt, rec.conflicts.size))
+                    }
+                    if (showConflicts) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                stringResource(R.string.conflict_apply_all),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        resolving = true
+                                        rec.conflicts.forEach { c -> withContext(Dispatchers.IO) { vm.resolveKeepLocal(rec.id, c.id) } }
+                                        resolving = false; authVm.touch()
+                                    }
+                                },
+                                enabled = !resolving && !locked
+                            ) { Text(stringResource(R.string.conflict_keep_local)) }
+                        }
+                        rec.conflicts.forEach { c ->
+                            Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(
+                                    stringResource(
+                                        R.string.conflict_detail_fmt,
+                                        c.localTitle.ifBlank { "—" },
+                                        c.remoteTitle.ifBlank { "—" }
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    fmt.format(java.util.Date(c.localUpdatedAt)) + " ← → " + fmt.format(java.util.Date(c.remoteUpdatedAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveKeepLocal(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_keep_local)) }
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveTakeRemote(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_take_remote)) }
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                resolving = true
+                                                withContext(Dispatchers.IO) { vm.resolveKeepBoth(rec.id, c.id) }
+                                                resolving = false; authVm.touch()
+                                            }
+                                        },
+                                        enabled = !resolving && !locked
+                                    ) { Text(stringResource(R.string.conflict_keep_both)) }
+                                }
+                            }
+                        }
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 2.dp))

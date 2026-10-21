@@ -152,6 +152,7 @@ class NotesViewModel @Inject constructor(
         meta.createdAt > 0 && meta.createdAt < repo.newestUpdate()
 
     // الاستعادة بالدمج — نسخة أمان أولًا ثم دمج ثم تسجيل في سجل الاستعادة (قابل للتراجع)
+    // P3-3ب: التعارضات تُسجَّل مع السجل (احتفظ بالمحلي + سجّل) وتُحل لاحقًا من بطاقة السجل.
     suspend fun restoreBackupJson(json: String, source: String = "file"): com.nota.notes.data.NotesRepository.RestoreResult {
         repo.safetySnapshot()
         val r = repo.restoreMerge(
@@ -159,11 +160,33 @@ class NotesViewModel @Inject constructor(
             com.nota.notes.data.BackupCodec.foldersOf(json)
         )
         runCatching {
-            repo.logRestore(com.nota.notes.data.RestoreRecord(src = source, added = r.added, skipped = r.skipped, addedIds = r.addedIds))
+            repo.logRestore(com.nota.notes.data.RestoreRecord(src = source, added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
         }
         return r
     }
 
+    // P3-3ب: حل تعارض واحد — يعيد true عند النجاح (ويُزيله من السجل).
+    suspend fun resolveTakeRemote(recordId: Long, conflictId: String): Boolean {
+        val rec = repo.restoreLogOnce().find { it.id == recordId } ?: return false
+        val c = rec.conflicts.find { it.id == conflictId } ?: return false
+        if (!repo.takeRemote(c.remote)) return false
+        runCatching { repo.replaceRestore(rec.copy(conflicts = rec.conflicts.filterNot { it.id == conflictId })) }
+        return true
+    }
+    suspend fun resolveKeepBoth(recordId: Long, conflictId: String): Boolean {
+        val rec = repo.restoreLogOnce().find { it.id == recordId } ?: return false
+        val c = rec.conflicts.find { it.id == conflictId } ?: return false
+        runCatching { repo.keepBoth(c.remote) }.getOrNull() ?: return false
+        runCatching { repo.replaceRestore(rec.copy(conflicts = rec.conflicts.filterNot { it.id == conflictId })) }
+        return true
+    }
+    // "احتفظ بالمحلية" = إسقاط التعارض من السجل (المحلي محفوظ أصلًا — لا تغيير بيانات).
+    suspend fun resolveKeepLocal(recordId: Long, conflictId: String): Boolean {
+        val rec = repo.restoreLogOnce().find { it.id == recordId } ?: return false
+        if (rec.conflicts.none { it.id == conflictId }) return false
+        runCatching { repo.replaceRestore(rec.copy(conflicts = rec.conflicts.filterNot { it.id == conflictId })) }
+        return true
+    }
     // سجل الاستعادة + التراجع بالنقل للسلة (27 سبتمبر 2026)
     val restoreLog = repo.restoreLog()
     suspend fun undoRestore(id: Long): Int {
