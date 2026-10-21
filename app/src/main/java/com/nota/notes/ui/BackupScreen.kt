@@ -633,11 +633,10 @@ private fun NotaCloudCard(
         } else {
             Text("Pro: Full backup (text + media)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
         }
-        OutlinedButton(onClick = {
-            ncvm.restoreNow()
-        }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { ncvm.prepareCloudPreview() }, enabled = !ncWorking && !working && !locked, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.ncloud_restore))
         }
+        CloudPreviewDialog(ncvm, fmt)
         DeleteOneCloudButton(ncvm, ncPointer != null, ncWorking || working, locked)
         val nm = ncMsg
         if (nm != null) {
@@ -1310,6 +1309,14 @@ private fun FileBackupCard(vm: NotesViewModel, authVm: AuthViewModel, fmt: java.
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun CloudPreviewDialog(ncvm: NotaCloudViewModel, fmt: SimpleDateFormat) {
+    val pv by ncvm.cloudPreview.collectAsStateWithLifecycle()
+    pv?.let { v ->
+        AlertDialog(onDismissRequest = { ncvm.clearCloudPreview() }, title = { Text(stringResource(R.string.bk_preview_title)) }, text = { Column { Text(stringResource(R.string.bk_preview_msg, v.count, if (v.createdAt > 0) fmt.format(Date(v.createdAt)) else "—")); if (v.stale) { Text(stringResource(R.string.bk_preview_stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) } } }, confirmButton = { TextButton(onClick = { ncvm.confirmCloudRestore() }) { Text(stringResource(R.string.bk_preview_confirm)) } }, dismissButton = { TextButton(onClick = { ncvm.clearCloudPreview() }) { Text(stringResource(R.string.cancel)) } })
     }
 }
 
