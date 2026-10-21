@@ -1134,6 +1134,9 @@
     <string name="backup_delete_all_title">Delete all backups?</string>
     <string name="backup_delete_all_msg">All backups will be erased from Drive and Cloud. Continue?</string>
     <string name="backup_delete_all_confirm_word">DELETE ALL</string>
+    <!-- Phase 4e -->
+    <string name="cloud_key_locked_msg">Cloud key card — requires Pro to view</string>
+    <string name="cloud_key_needed_for_media">This backup contains encrypted media — it needs the cloud key. [Info]</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">Nota cloud</string>
     <string name="bk_method_file">.nota file</string>

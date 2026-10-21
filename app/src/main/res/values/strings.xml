@@ -1129,6 +1129,9 @@
     <string name="backup_delete_all_title">حذف كل النسخ الاحتياطية؟</string>
     <string name="backup_delete_all_msg">سيُمسح كل النسخ الاحتياطية من Drive وCloud. متابعة؟</string>
     <string name="backup_delete_all_confirm_word">احذف الكل</string>
+    <!-- Phase 4هـ -->
+    <string name="cloud_key_locked_msg">بطاقة مفتاح السحابة — تتطلب Pro لعرضها</string>
+    <string name="cloud_key_needed_for_media">هذه النسخة تحتوي على وسائط مشفرة — تحتاج مفتاح السحابة. [معلومات]</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">سحابة نوتا</string>
     <string name="bk_method_file">ملف .nota</string>

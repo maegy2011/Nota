@@ -217,9 +217,8 @@ fun BackupScreen(
                     }
                     MethodSection(stringResource(R.string.bk_method_ncloud)) {
                         NotaCloudCard(ncvm, ncQuota, ncPointer, ncWorking, ncMsg, ncDetail, ncPro, working, fmt, clipboard, locked, onLocked)
-                        if (ncPro) {
-                            CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked)
-                        }
+                        // Phase 4هـ: بطاقة Key ظاهرة دائمًا — Free يرى رسالة القفل + ترقية
+                        CloudKeyCard(ncvm, ncWorking, working, clipboard, locked, onLocked, isPro = ncPro, hasCloudMedia = ncPointer != null)
                     }
                     MethodSection(stringResource(R.string.bk_method_file)) {
                         FileBackupCard(notesVm, authVm, fmt, locked, onLocked)
@@ -712,13 +711,18 @@ private fun NotaCloudCard(
 
 // 3) مفتاح السحابة الخاص: عرض + حفظ في ملف + نسخ + استيراد — داخل الشاشة لا خارجها
 @Composable
+// Phase 4هـ: بطاقة Key ظاهرة دائمًا — Free يرى القفل + ترقية، Pro/Trial كامل
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun CloudKeyCard(
     ncvm: NotaCloudViewModel,
     ncWorking: Boolean,
     working: Boolean,
     clipboard: androidx.compose.ui.platform.ClipboardManager,
     locked: Boolean = false,
-    onLocked: () -> Unit = {}
+    onLocked: () -> Unit = {},
+    isPro: Boolean = true,
+    hasCloudMedia: Boolean = false
 ) {
     val ctx = LocalContext.current
     val keyScope = rememberCoroutineScope()
@@ -789,6 +793,14 @@ private fun CloudKeyCard(
                 }
             }
         }
+        if (!isPro) {
+            Text(stringResource(R.string.cloud_key_locked_msg), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+            Button(onClick = onLocked, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.paywall_upgrade)) }
+        }
+        if (hasCloudMedia) {
+            Text(stringResource(R.string.cloud_key_needed_for_media), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        if (isPro) {
         Text(
             stringResource(R.string.ncloud_key_msg),
             style = MaterialTheme.typography.bodySmall,
@@ -941,6 +953,7 @@ private fun CloudKeyCard(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
+        } // end if (isPro)
     }
 }
 // 5) سجل عمليات الاستعادة: كل دمج (وقته/مصدره/عدده) + تراجع بالنقل للسلة — قابل للاستعادة 30 يومًا (27 سبتمبر 2026)
