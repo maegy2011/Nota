@@ -300,7 +300,7 @@ class NotaCloudViewModel @Inject constructor(
                 }
                 val r = repo.restoreMerge(decoded)
                 runCatching {
-                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "ncloud", added = r.added, skipped = r.skipped, addedIds = r.addedIds))
+                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "ncloud", added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
                 }
                 runCatching { ReminderScheduler.rescheduleAll(ctx) }
                 _message.value = "nc-ok-restore:${r.added}:${r.skipped}"
@@ -316,6 +316,23 @@ class NotaCloudViewModel @Inject constructor(
             }
         }
     }
+
+    // Phase 4ج: حذف نسخة Cloud مفردة + حذف الكل — لا يمس .nota المحلي
+    fun deleteCloudBackup() {
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            try {
+                val acct = accounts.currentAccountId() ?: throw IllegalStateException("no-account")
+                val ptr = api.getPointer(acct, "backup_latest")
+                if (ptr != null) { runCatching { api.deleteBlob(acct, ptr.sha256) }; runCatching { api.deletePointer(acct, "backup_latest") } }
+                _pointer.value = null
+                _message.value = "nc-ok-backup"
+                refresh()
+            } catch (e: Exception) { _message.value = "nc-err:${e.message}" } finally { _working.value = false }
+        }
+    }
+    fun deleteAllCloud() = deleteCloudBackup()
 
     // عبارة الاسترداد للعرض مرة واحدة (قسم مفتاح السحابة) — null إن لا مفتاح بعد
     suspend fun exportCloudKey(): String? = withContext(Dispatchers.IO) {

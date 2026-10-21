@@ -186,6 +186,30 @@ class DriveBackup @Inject constructor(@ApplicationContext private val ctx: Conte
         authed { t -> downloadLatestInner(t) }
     }
 
+    // Phase 4ج: حذف نسخة مفردة + حذف الكل — Drive appData فقط، لا يمس .nota المحلي
+    suspend fun listVersions(): List<RemoteVersion> = withContext(Dispatchers.IO) { authed { tt -> findAll(tt) } }
+    suspend fun deleteById(id: String): Unit = withContext(Dispatchers.IO) {
+        authed { tt ->
+            val c = conn("https://www.googleapis.com/drive/v3/files/$id", tt, "DELETE")
+            readAll(c)
+            if (c.responseCode !in 200..299 && c.responseCode != 404) throw IllegalStateException("drive-delete:${c.responseCode}")
+        }
+    }
+    suspend fun deleteAll(): Int = withContext(Dispatchers.IO) {
+        authed { tt ->
+            val all = findAll(tt)
+            var n = 0
+            all.forEach { v ->
+                runCatching {
+                    val c = conn("https://www.googleapis.com/drive/v3/files/${v.id}", tt, "DELETE")
+                    readAll(c)
+                    if (c.responseCode in 200..299 || c.responseCode == 404) n++
+                }
+            }
+            n
+        }
+    }
+
     // التنزيل: محتوى أحدث نسخة — للتوافق مع النداءات القديمة
     suspend fun download(): String = downloadLatest().first
 

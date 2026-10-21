@@ -333,7 +333,7 @@ class CloudBackupViewModel @Inject constructor(
                 repo.safetySnapshot()
                 val r = repo.restoreMerge(BackupCodec.decode(json), BackupCodec.foldersOf(json))
                 runCatching {
-                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "drive", added = r.added, skipped = r.skipped, addedIds = r.addedIds))
+                    repo.logRestore(com.nota.notes.data.RestoreRecord(src = "drive", added = r.added, skipped = r.skipped, addedIds = r.addedIds, conflicts = r.conflicts))
                 }
                 runCatching { ReminderScheduler.rescheduleAll(ctx) }
                 clearPreview()
@@ -345,6 +345,23 @@ class CloudBackupViewModel @Inject constructor(
             }
         }
     }
+
+    // Phase 4ج: حذف نسخة Drive مفردة + حذف الكل بتأكيد مزدوج (الواجهة تؤكد، هنا التنفيذ فقط)
+    fun deleteDriveById(id: String) {
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            try { drive.deleteById(id); _message.value = "ok-backup" } catch (e: Exception) { _message.value = "err:${e.message}" } finally { _working.value = false }
+        }
+    }
+    fun deleteAllDrive() {
+        if (_working.value) return
+        viewModelScope.launch {
+            _working.value = true
+            try { drive.deleteAll(); _message.value = "ok-backup" } catch (e: Exception) { _message.value = "err:${e.message}" } finally { _working.value = false }
+        }
+    }
+    suspend fun listDriveVersions(): List<DriveBackup.RemoteVersion> = runCatching { drive.listVersions() }.getOrDefault(emptyList())
 
     // التلقائي اليومي الصامت: يُستدعى من App بعد كل فتح قفل — يتخطى بصمت بلا شبكة/دخول/موافقة
     fun autoBackupIfDue() {

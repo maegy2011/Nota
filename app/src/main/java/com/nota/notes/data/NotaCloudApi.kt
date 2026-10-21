@@ -134,6 +134,22 @@ class NotaCloudApi @Inject constructor(
         }
     }
 
+    // Phase 4ج: حذف نسخة سحابية (pointer + blob) — لا يمس .nota المحلي
+    suspend fun deletePointer(accountId: String, name: String) = withTokenRetry { token ->
+        withContext(Dispatchers.IO) {
+            val enc = URLEncoder.encode(accountId, "UTF-8")
+            val c = conn("$CLOUD_BASE/v1/cloud/pointers/$name?accountId=$enc", "DELETE", 10_000, token)
+            try { val body = readBody(c); if (c.responseCode !in 200..299 && c.responseCode != 404) throw errOf(c.responseCode, body, "delete-pointer") } finally { c.disconnect() }
+        }
+    }
+    suspend fun deleteBlob(accountId: String, sha256: String) = withTokenRetry { token ->
+        withContext(Dispatchers.IO) {
+            val enc = URLEncoder.encode(accountId, "UTF-8")
+            val c = conn("$CLOUD_BASE/v1/cloud/blobs/$sha256?accountId=$enc", "DELETE", 10_000, token)
+            try { val body = readBody(c); if (c.responseCode !in 200..299 && c.responseCode != 404) throw errOf(c.responseCode, body, "delete-blob") } finally { c.disconnect() }
+        }
+    }
+
     // null = لا نسخة بعد (404) — ليست خطأ
     suspend fun getPointer(accountId: String, name: String): CloudPointer? = withTokenRetry { token ->
         withContext(Dispatchers.IO) {

@@ -144,6 +144,13 @@
     <string name="bk_undone">تُراجع عنها ✅</string>
     <string name="bk_undo_fmt">نُقلت %1$d ملاحظة للسلة — قابلة للاستعادة 30 يومًا</string>
     <string name="bk_preview_stale">⚠️ هذه النسخة أقدم من بياناتك الحالية — الدمج قد يعيد عناصر محذوفة</string>
+    <!-- P3-3ب: سياسة التعارض (الافتراضي: احتفظ بالمحلي + سجّل) -->
+    <string name="restore_conflicts_fmt">‏%1$d تعارضات — تحتاج قرار</string>
+    <string name="conflict_keep_local">احتفظ بالمحلية</string>
+    <string name="conflict_take_remote">خذ من النسخة</string>
+    <string name="conflict_keep_both">احتفظ بالاثنين</string>
+    <string name="conflict_apply_all">تطبيق على الكل</string>
+    <string name="conflict_detail_fmt">المحلية: %1$s • النسخة: %2$s</string>
     <string name="cloud_verify_failed">فشل التحقق من الرفع — حُذفت النسخة المشكوك فيها من السحابة، أعد المحاولة</string>
     <string name="cloud_shrink_title">النسخة أصغر بكثير</string>
     <string name="cloud_shrink_msg">الجديدة %1$d%% فقط من السابقة — حذف جماعي بالخطأ؟ المتابعة ترفعها، والإلغاء يُبقي السحابة كما هي</string>
@@ -1116,6 +1123,12 @@
     <string name="backup_pro_chip">Pro</string>
     <string name="backup_free_chip">مجاني</string>
     <string name="backup_pro_key_explain">المفتاح السحابي يشفّر وسائطك من طرف إلى طرف. الخادم لا يراه أبدًا. متاح في Pro.</string>
+    <!-- Phase 4ج -->
+    <string name="backup_delete_one_title">حذف النسخة؟</string>
+    <string name="backup_delete_one_msg">لا يمكن التراجع عن حذف هذه النسخة.</string>
+    <string name="backup_delete_all_title">حذف كل النسخ الاحتياطية؟</string>
+    <string name="backup_delete_all_msg">سيُمسح كل النسخ الاحتياطية من Drive وCloud. متابعة؟</string>
+    <string name="backup_delete_all_confirm_word">احذف الكل</string>
     <string name="bk_method_drive">Drive</string>
     <string name="bk_method_ncloud">سحابة نوتا</string>
     <string name="bk_method_file">ملف .nota</string>
