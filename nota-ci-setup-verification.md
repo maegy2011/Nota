@@ -183,3 +183,9 @@ jobs:
 - run `39752480406` فشل في `Run unit tests` بعد ~1.5 دقيقة: `NOTA_KEYSTORE_PASSWORD missing` — كتلة `signingConfigs.release` في `app/build.gradle.kts` كانت ترمي `GradleException` وقت الـ configuration حتى لو المهمة لا تحتاج توقيعًا.
 - الإصلاح (commit `2679168`): التهيئة مشروطة بوجود كلمة السر (env أو signing.env كما كان محليًا)؛ و`buildTypes.release.signingConfig` يسقط على `debug` عند غيابها — APK يعمل لكن غير قابل للنشر على Play، والتوقيع الحقيقي يبقى للمهمة 3 (keystore + secrets).
 - أُعيد التشغيل: run `39753118755` (workflow_dispatch, variant=play) بحالة `in_progress`.
+
+### إصلاح google-services.json (22 أكتوبر)
+- run `39753118755` فشل في `processMockDebugGoogleServices`: الملف gitignored وغير موجود على الـ runner.
+- الإصلاح: خطوة `Restore google-services.json` تسترجعه من secret `GOOGLE_SERVICES_JSON` عند وجوده، وإلا تكتب placeholder يغطي الـ packageين — Placeholder يعني Google Sign-In لا يعمل في APK الـ CI (موثق).
+- عطل جانبي: heredoc داخل `run: |` كسرته مسافة YAML (خطوة فشلت في 12s برقم `39753750554`) — استُبدل بـ `printf` بعد تجربته محليًا (commit `beaf5a6`).
+- أُعيد التشغيل: run `39753864291` (workflow_dispatch, variant=play) بحالة `in_progress`.
