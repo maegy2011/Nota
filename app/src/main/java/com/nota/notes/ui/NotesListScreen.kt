@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.List
@@ -466,7 +467,18 @@ fun NotesListScreen(
                 }
             }
             if (shown.isEmpty()) {
-                // حالة الفراغ المرقاة: أيقونة + نص + زر إجراء — لا نص وحيد (قاعدة حالات UX)
+                val emptyIcon = when {
+                    query.isNotBlank() -> Icons.Filled.Search
+                    isArchive -> Icons.Filled.Folder
+                    isFavorite -> Icons.Filled.FavoriteBorder
+                    else -> Icons.Filled.Add
+                }
+                val emptyText = when {
+                    query.isNotBlank() -> R.string.empty_no_results
+                    isArchive -> R.string.empty_archive
+                    isFavorite -> R.string.empty_favorites
+                    else -> R.string.empty_no_notes
+                }
                 Column(
                     Modifier.fillMaxSize().padding(bottom = 80.dp).padding(horizontal = 32.dp),
                     verticalArrangement = Arrangement.Center,
@@ -479,7 +491,7 @@ fun NotesListScreen(
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Icon(
-                                if (query.isBlank()) Icons.Filled.Add else Icons.Filled.Search,
+                                emptyIcon,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(36.dp)
@@ -488,20 +500,24 @@ fun NotesListScreen(
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        if (query.isBlank()) stringResource(R.string.empty_no_notes) else stringResource(R.string.empty_no_results),
+                        stringResource(emptyText),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(16.dp))
-                    if (query.isBlank() && !isFavorite && !isArchive) {
+                    if (query.isNotBlank()) {
+                        OutlinedButton(onClick = { onQuery("") }) {
+                            Text(stringResource(R.string.empty_cta_clear))
+                        }
+                    } else if (!isArchive && !isFavorite) {
                         Button(onClick = onAdd) {
                             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.empty_cta_add))
                         }
-                    } else {
-                        OutlinedButton(onClick = { onQuery("") }) {
-                            Text(stringResource(R.string.empty_cta_clear))
+                    } else if (isFavorite) {
+                        Button(onClick = { pickFavOpen = true }) {
+                            Text(stringResource(R.string.empty_cta_pick_favorites))
                         }
                     }
                 }

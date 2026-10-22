@@ -173,6 +173,9 @@
     <string name="empty_no_results">No matching results</string>
     <string name="empty_cta_add">Create your first note</string>
     <string name="empty_cta_clear">Clear search</string>
+    <string name="empty_archive">Archive is empty</string>
+    <string name="empty_favorites">No favorites yet</string>
+    <string name="empty_cta_pick_favorites">Pick from candidates</string>
     <string name="new_note_cd">New note</string>
     <string name="delete_cd">Delete</string>
     <string name="edit_title">Edit</string>

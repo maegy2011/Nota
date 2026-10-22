@@ -173,6 +173,9 @@
     <string name="empty_no_results">لا نتائج مطابقة لبحثك</string>
     <string name="empty_cta_add">أنشئ أول ملاحظة</string>
     <string name="empty_cta_clear">مسح البحث</string>
+    <string name="empty_archive">الأرشيف فارغ</string>
+    <string name="empty_favorites">لا مفضلات بعد</string>
+    <string name="empty_cta_pick_favorites">اختر من المرشحين</string>
     <string name="new_note_cd">ملاحظة جديدة</string>
     <string name="delete_cd">حذف</string>
     <string name="edit_title">تحرير</string>
