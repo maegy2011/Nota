@@ -38,13 +38,21 @@ jobs:
           sudo apt-get clean
           df -h
 
-      # R8 + Kotlin need headroom beyond the 7GB runner RAM
+      # R8 + Kotlin need headroom beyond the 7GB runner RAM.
+      # NOTE: newer runner images already ship an active /swapfile —
+      # creating over it fails with "Text file busy", so reuse it when present.
       - name: Create 10GB swapfile
         run: |
-          sudo fallocate -l 10G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=10240
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          if swapon --show=NAME --noheadings | grep -qx /swapfile; then
+            echo "swapfile already active — reusing"
+          else
+            sudo swapoff /swapfile 2>/dev/null || true
+            sudo rm -f /swapfile
+            sudo fallocate -l 10G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=10240
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
           free -h
 
       - name: Set up JDK 17 (Temurin)
