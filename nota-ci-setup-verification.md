@@ -157,11 +157,19 @@ jobs:
 
 ---
 
-## الحالة: READY_TO_PUSH
+## الحالة: PUSHED + WORKFLOW DISPATCHED
 
-الفرع المحلي `release-ci` (من `26ece16`):
+الفرع `release-ci` مدفوع إلى origin:
 
 - `6f336f1` build(ci): raise gradle heap to 6g for R8 on GitHub runners
 - `5a81135` ci: add build-release workflow with R8 OOM mitigation
+- `8a9b4ac` fix(ci): gate keystore step on env not secrets (422 on dispatch)
 
-لا push نُفّذ — بانتظار أمر محمد.
+### إصلاح عطل التشغيل اليدوي (22 أكتوبر)
+
+- العرض: `gh workflow run ... -f variant=play` رفض بـ HTTP 422 مرتين:
+  1. `Unexpected inputs provided: ["build_variant"]` — اسم المُدخل الصحيح `variant`.
+  2. `failed to parse workflow (Line 68): Unrecognized named-value: 'secrets'` — سياق `secrets` ممنوع في `steps[*].if` (GitHub يرفض الملف كله عند الـ parse، وهذا نفسه سبب فشل run الـ push رقم `39750162417`).
+- الإصلاح: نسخ السر إلى `env.HAS_RELEASE_KEYSTORE` على مستوى الـ job، وبوابة الخطوة أصبحت `if: ${{ env.HAS_RELEASE_KEYSTORE != '' }}` — `env` مسموح في `steps[*].if`.
+- بعد الإصلاح: التشغيل اليدوي قُبِل — run رقم `39750785162` (workflow_dispatch, variant=play) بحالة `in_progress`.
+- المتابعة: مراقبة الـ run حتى النهاية (~20-40 دقيقة) ثم تنزيل الـ APK من Artifacts.
