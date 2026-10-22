@@ -218,8 +218,14 @@ class NotesViewModel @Inject constructor(
         return entitlements.cached.first().pro
     }
 
-    fun togglePin(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.togglePin(id) } }
-    fun toggleLock(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.toggleLock(id) } }
+    fun togglePin(id: Long) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+// Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch; runCatching { repo.togglePin(id) } }
+    fun toggleLock(id: Long) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+// Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch; runCatching { repo.toggleLock(id) } }
     // المفضلة: بحث مستقل + نفس الترتيب والفلترة اللونية — القلب يقلب الحالة
     val favoriteQuery = MutableStateFlow("")
     private val favoritesRaw = combine(favoriteQuery.debounce(200), acctTick) { q, _ -> q }.flatMapLatest { q ->
@@ -245,18 +251,33 @@ class NotesViewModel @Inject constructor(
             }
             sortNotes(filtered, sort)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun toggleFavorite(id: Long) = viewModelScope.launch { if (!proNow()) return@launch; runCatching { repo.toggleFavorite(id) } }
+    fun toggleFavorite(id: Long) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+// Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch; runCatching { repo.toggleFavorite(id) } }
     fun unfavoriteMany(ids: Set<Long>) = viewModelScope.launch { repo.unfavoriteMany(ids) }
     // تكرار ملاحظة — يرجع معرف النسخة (تُفتح بعده مباشرة من App)
     // المرحلة 1ج: بلا Pro يُرجع -1 (المنادي duplicateAndOpen يعالجها بفرع else الآمن) — بلا رمي عمدًا.
     suspend fun duplicateNow(id: Long, newTitle: String): Long {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+// Direct VM callers (widgets, deep links, future features) bypass UI gating.
         if (!proNow()) return -1L
         return repo.duplicate(id, newTitle)
     }
     // التذكير — حفظ/مسح + إعادة جدولة الكل (إقلاع/استعادة)
-    fun setReminder(id: Long, spec: com.nota.notes.data.ReminderSpec) = viewModelScope.launch { runCatching { repo.setReminder(id, spec) } }
+    fun setReminder(id: Long, spec: com.nota.notes.data.ReminderSpec) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
+        runCatching { repo.setReminder(id, spec) }
+    }
     fun setReminder(id: Long, at: Long, repeat: String, beforeMin: Long) = setReminder(id, com.nota.notes.data.ReminderSpec(at = at, repeat = repeat, beforeMin = beforeMin))
-    fun clearReminder(id: Long) = viewModelScope.launch { runCatching { repo.clearReminder(id) } }
+    fun clearReminder(id: Long) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
+        runCatching { repo.clearReminder(id) }
+    }
     fun rescheduleReminders() = viewModelScope.launch { runCatching { repo.rescheduleReminders() } }
     // إدارة الوسوم + شاشة التنبيهات — العدّادات والمواعيد تتدفق مباشرة من القاعدة
     val tagCounts: StateFlow<Map<String, Int>> =
@@ -270,27 +291,49 @@ class NotesViewModel @Inject constructor(
         acctTick.flatMapLatest { repo.categories() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categoryCounts: StateFlow<Map<String, Int>> =
         acctTick.flatMapLatest { repo.categoryCounts() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
-    fun setCategory(id: Long, category: String?) = viewModelScope.launch { runCatching { repo.setCategory(id, category) } }
+    fun setCategory(id: Long, category: String?) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
+        runCatching { repo.setCategory(id, category) }
+    }
     fun renameCategory(old: String, newName: String) = viewModelScope.launch { runCatching { repo.renameCategory(old, newName) } }
     fun clearCategory(name: String) = viewModelScope.launch { runCatching { repo.clearCategory(name) } }
     fun deleteTag(name: String) = viewModelScope.launch { runCatching { repo.deleteTag(name) } }
     fun createTag(name: String) = viewModelScope.launch { runCatching { repo.createTag(name) } }
     // وسوم ملاحظة واحدة — تُحمَّل عند الفتح وتُحفظ مع كل حفظ
     suspend fun loadTags(id: Long): List<String> = runCatching { repo.tagsOf(id) }.getOrDefault(emptyList())
-    fun saveTags(id: Long, tags: List<String>) = viewModelScope.launch { runCatching { repo.setTags(id, tags) } }
+    fun saveTags(id: Long, tags: List<String>) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
+        runCatching { repo.setTags(id, tags) }
+    }
     // محتوى الملاحظة: مهام + مرفقات — تحميل/إضافة/قلب/حذف (الفشل صامت كالوسوم)
     suspend fun loadTasks(id: Long): List<com.nota.notes.data.ChecklistItem> = runCatching { repo.tasksOf(id) }.getOrDefault(emptyList())
     suspend fun loadAttachments(id: Long): List<com.nota.notes.data.NoteAttachment> = runCatching { repo.attachmentsOf(id) }.getOrDefault(emptyList())
     fun addTask(id: Long, text: String, onDone: (Long) -> Unit = {}) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
         runCatching { repo.addTask(id, text) }.onSuccess { if (it > 0) onDone(it) }
     }
     fun toggleTask(item: com.nota.notes.data.ChecklistItem, onDone: () -> Unit = {}) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
         runCatching { repo.toggleTask(item) }.onSuccess { onDone() }
     }
     fun renameTask(item: com.nota.notes.data.ChecklistItem, text: String, onDone: () -> Unit = {}) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
         runCatching { repo.renameTask(item, text) }.onSuccess { onDone() }
     }
     fun deleteTask(id: Long, onDone: () -> Unit = {}) = viewModelScope.launch {
+        // Pro gating (defense-in-depth) — UI also gates via showProLocks.
+        // Direct VM callers (widgets, deep links, future features) bypass UI gating.
+        if (!proNow()) return@launch
         runCatching { repo.deleteTask(id) }.onSuccess { onDone() }
     }
     fun deleteAttachment(att: com.nota.notes.data.NoteAttachment, onDone: () -> Unit = {}) = viewModelScope.launch {
