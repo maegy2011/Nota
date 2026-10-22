@@ -81,6 +81,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -205,11 +206,11 @@ fun NotesListScreen(
     var filtersOpen by remember { mutableStateOf(false) }
     val hasActiveFilter = colorFilter != null || tagFilter != null || categoryFilter != null || includeArchive
     // دقة الجرس: إعادة تركيب كل دقيقة حتى يختفي الموعد الماضي بلا انتظار تغيير في القائمة
-    var minuteTick by remember { mutableStateOf(0L) }
+    val minuteTick = remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(60_000)
-            minuteTick = System.currentTimeMillis()
+            minuteTick.value = System.currentTimeMillis()
         }
     }
     // البحث الديناميكي: مخفي افتراضيًا — أيقونة تفتحه في نفس مكان الهيدر مع ضبط الارتفاع تلقائيًا
@@ -636,7 +637,12 @@ fun NotesListScreen(
                                     }
                                     // التذكير المستقبلي: جرس + الموعد — الماضي يُخفى (المنبه انطلق وانتهى)
                                     // minuteTick قراءة مقصودة: تُعيد التركيب كل دقيقة لدقة الجرس
-                                    if (minuteTick >= 0 && n.reminderAt != null && n.reminderAt > System.currentTimeMillis()) {
+                                    val showReminder by remember(n.reminderAt, minuteTick) {
+                                        derivedStateOf {
+                                            minuteTick.value >= 0 && n.reminderAt != null && n.reminderAt > System.currentTimeMillis()
+                                        }
+                                    }
+                                    if (showReminder) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -649,7 +655,7 @@ fun NotesListScreen(
                                                 modifier = Modifier.size(14.dp)
                                             )
                                             Text(
-                                                fmt.format(Date(n.reminderAt)),
+                                                fmt.format(Date(n.reminderAt!!)),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = cardOn
                                             )
