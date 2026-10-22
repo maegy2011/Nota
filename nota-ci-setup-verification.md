@@ -173,3 +173,8 @@ jobs:
 - الإصلاح: نسخ السر إلى `env.HAS_RELEASE_KEYSTORE` على مستوى الـ job، وبوابة الخطوة أصبحت `if: ${{ env.HAS_RELEASE_KEYSTORE != '' }}` — `env` مسموح في `steps[*].if`.
 - بعد الإصلاح: التشغيل اليدوي قُبِل — run رقم `39750785162` (workflow_dispatch, variant=play) بحالة `in_progress`.
 - المتابعة: مراقبة الـ run حتى النهاية (~20-40 دقيقة) ثم تنزيل الـ APK من Artifacts.
+
+### إصلاح فشل الـ run الأول (22 أكتوبر)
+- run `39750785162` فشل بعد ~35s في خطوة `Create 10GB swapfile`: صور الـ runner الحديثة تأتي ومعها `/swapfile` نشط مسبقًا — `fallocate` فوقه يفشل بـ `Text file busy`.
+- الإصلاح (commit `ba149e1`): الخطوة أصبحت تتحقق أولًا (`swapon --show`) — إن كان `/swapfile` نشطًا يُعاد استخدامه، وإلا يُنشأ جديدًا.
+- أُعيد التشغيل: run `39752480406` (workflow_dispatch, variant=play) بحالة `in_progress`.
