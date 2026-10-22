@@ -178,3 +178,8 @@ jobs:
 - run `39750785162` فشل بعد ~35s في خطوة `Create 10GB swapfile`: صور الـ runner الحديثة تأتي ومعها `/swapfile` نشط مسبقًا — `fallocate` فوقه يفشل بـ `Text file busy`.
 - الإصلاح (commit `ba149e1`): الخطوة أصبحت تتحقق أولًا (`swapon --show`) — إن كان `/swapfile` نشطًا يُعاد استخدامه، وإلا يُنشأ جديدًا.
 - أُعيد التشغيل: run `39752480406` (workflow_dispatch, variant=play) بحالة `in_progress`.
+
+### إصلاح فشل configuration (22 أكتوبر)
+- run `39752480406` فشل في `Run unit tests` بعد ~1.5 دقيقة: `NOTA_KEYSTORE_PASSWORD missing` — كتلة `signingConfigs.release` في `app/build.gradle.kts` كانت ترمي `GradleException` وقت الـ configuration حتى لو المهمة لا تحتاج توقيعًا.
+- الإصلاح (commit `2679168`): التهيئة مشروطة بوجود كلمة السر (env أو signing.env كما كان محليًا)؛ و`buildTypes.release.signingConfig` يسقط على `debug` عند غيابها — APK يعمل لكن غير قابل للنشر على Play، والتوقيع الحقيقي يبقى للمهمة 3 (keystore + secrets).
+- أُعيد التشغيل: run `39753118755` (workflow_dispatch, variant=play) بحالة `in_progress`.
