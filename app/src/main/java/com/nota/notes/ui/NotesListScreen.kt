@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,7 +85,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -193,17 +197,22 @@ fun NotesListScreen(
     val foldersById = remember(folders) { folders.associateBy { it.id } }
     // تبويبا المفضلة: النشطة + المؤرشفة لاحقًا — التحديد والعداد والقائمة يتبعان التبويب المعروض
     val hasArchiveTab = isFavorite && archivedTabNotes != null
-    var favTab by remember(hasArchiveTab) { mutableStateOf(0) }
+    var favTab by rememberSaveable(hasArchiveTab) { mutableStateOf(0) }
     val shown: List<Note> = if (hasArchiveTab && favTab == 1) archivedTabNotes!! else notes
     // التحديد المتعدد: ضغطة مطولة أو "تحديد" من القائمة تدخل الوضع، والضغط يبدّل، وX تخرج
-    var selected by remember { mutableStateOf(setOf<Long>()) }
+    var selected by rememberSaveable(
+        saver = Saver<MutableState<Set<Long>>, List<Long>>(
+            save = { it.value.toList() },
+            restore = { mutableStateOf(it.toSet()) }
+        )
+    ) { mutableStateOf(setOf<Long>()) }
     val allIds = remember(shown) { shown.map { it.id }.toSet() }
     val sel = selected.intersect(allIds) // تقليم الغائبة بعد حذف أو تغيّر القائمة
     val selectionMode = sel.isNotEmpty()
     fun toggle(id: Long) { selected = if (id in selected) selected - id else selected + id }
     val fmt = remember { SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()) }
     // حالة الفلاتر مرفوعة فوق الـ Scaffold — الهيدر يبدّلها والمحتوى يعرض بطاقتها
-    var filtersOpen by remember { mutableStateOf(false) }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
     val hasActiveFilter = colorFilter != null || tagFilter != null || categoryFilter != null || includeArchive
     // دقة الجرس: إعادة تركيب كل دقيقة حتى يختفي الموعد الماضي بلا انتظار تغيير في القائمة
     val minuteTick = remember { mutableStateOf(System.currentTimeMillis()) }
@@ -214,7 +223,7 @@ fun NotesListScreen(
         }
     }
     // البحث الديناميكي: مخفي افتراضيًا — أيقونة تفتحه في نفس مكان الهيدر مع ضبط الارتفاع تلقائيًا
-    var searchOpen by remember(query) { mutableStateOf(query.isNotBlank()) }
+    var searchOpen by rememberSaveable { mutableStateOf(query.isNotBlank()) }
     val searchFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -270,7 +279,7 @@ fun NotesListScreen(
                 },
                 navigationIcon = {
                     if (selectionMode) {
-                        IconButton(onClick = { selected = emptySet() }) {
+                        IconButton(onClick = { selected = emptySet<Long>() }) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.clear_selection))
                         }
                     } else if (isArchive || isFavorite) {
@@ -345,7 +354,7 @@ fun NotesListScreen(
                     ) {
                         if (isFavorite) {
                             Button(
-                                onClick = { val ids = sel; selected = emptySet(); onUnfavoriteMany(ids) },
+                                onClick = { val ids = sel; selected = emptySet<Long>(); onUnfavoriteMany(ids) },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(stringResource(R.string.fav_remove))
@@ -353,7 +362,7 @@ fun NotesListScreen(
                         }
                         Button(
                             onClick = {
-                                val ids = sel; selected = emptySet()
+                                val ids = sel; selected = emptySet<Long>()
                                 if (isArchive) onUnarchiveMany(ids) else pendingBatchArchive = ids
                             },
                             modifier = Modifier.weight(1f)
@@ -391,8 +400,8 @@ fun NotesListScreen(
             // تبويبا المفضلة: النشطة والمؤرشفة لاحقًا — تُعرض فقط عند توفر التبويب الثاني
             if (hasArchiveTab) {
                 TabRow(selectedTabIndex = favTab, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                    Tab(selected = favTab == 0, onClick = { favTab = 0; selected = emptySet() }, text = { Text(stringResource(R.string.favorites_tab_active)) })
-                    Tab(selected = favTab == 1, onClick = { favTab = 1; selected = emptySet() }, text = { Text(stringResource(R.string.favorites_tab_archived)) })
+                    Tab(selected = favTab == 0, onClick = { favTab = 0; selected = emptySet<Long>() }, text = { Text(stringResource(R.string.favorites_tab_active)) })
+                    Tab(selected = favTab == 1, onClick = { favTab = 1; selected = emptySet<Long>() }, text = { Text(stringResource(R.string.favorites_tab_archived)) })
                 }
             }
             // بطاقة الفلاتر: ألوان + وسوم + أرشيف — ظاهرة عند الفتح أو البحث أو وجود فلتر نشط
@@ -497,7 +506,9 @@ fun NotesListScreen(
                     }
                 }
             } else {
+                val listState = rememberLazyListState()
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -883,7 +894,7 @@ fun NotesListScreen(
             title = { Text(stringResource(R.string.trash_move_title)) },
             text = { Text(stringResource(R.string.batch_trash_msg, ids.size)) },
             confirmButton = {
-                TextButton(onClick = { onDeleteMany(ids); pendingBatchDelete = null; selected = emptySet() }) {
+                TextButton(onClick = { onDeleteMany(ids); pendingBatchDelete = null; selected = emptySet<Long>() }) {
                     Text(stringResource(R.string.trash_move_btn), color = MaterialTheme.colorScheme.error)
                 }
             },
