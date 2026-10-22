@@ -189,3 +189,8 @@ jobs:
 - الإصلاح: خطوة `Restore google-services.json` تسترجعه من secret `GOOGLE_SERVICES_JSON` عند وجوده، وإلا تكتب placeholder يغطي الـ packageين — Placeholder يعني Google Sign-In لا يعمل في APK الـ CI (موثق).
 - عطل جانبي: heredoc داخل `run: |` كسرته مسافة YAML (خطوة فشلت في 12s برقم `39753750554`) — استُبدل بـ `printf` بعد تجربته محليًا (commit `beaf5a6`).
 - أُعيد التشغيل: run `39753864291` (workflow_dispatch, variant=play) بحالة `in_progress`.
+
+### إصلاح api_key في الـ placeholder (22 أكتوبر)
+- run `39753864291` فشل في `processMockDebugGoogleServices` برسالة جديدة: `Missing api_key/current_key object` — الـ plugin يقبل الملف شكليًا لكنه يطلب مفتاح API لكل client.
+- الإصلاح (commit `94ec99a`): أُضيف `"api_key": [{"current_key": "CI_PLACEHOLDER"}]` لكل package في الـ placeholder.
+- أُعيد التشغيل: run `39755309062` (workflow_dispatch, variant=play) بحالة `in_progress`.
