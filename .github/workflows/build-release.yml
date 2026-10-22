@@ -31,6 +31,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # google-services.json is gitignored (real Firebase secret lives only on
+      # dev machines). Restore it from the GOOGLE_SERVICES_JSON repo secret when
+      # present; otherwise write a clearly-fake placeholder covering both
+      # applicationIds (com.nota.notes + .mock) so the Google Services plugin
+      # can configure and unit tests run. Placeholder-built APKs have
+      # non-functional Google Sign-In — the real secret is required for a
+      # usable release (Task 3 / Signing).
+      - name: Restore google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+            echo "real google-services.json restored from secret"
+          else
+            cat > app/google-services.json <<'EOF'
+            {
+              "project_info": {"project_number": "0", "project_id": "ci-placeholder", "storage_bucket": "ci-placeholder.appspot.com"},
+              "client": [
+                {"client_info": {"mobilesdk_app_id": "1:0:android:0000000000000000", "android_client_info": {"package_name": "com.nota.notes"}}},
+                {"client_info": {"mobilesdk_app_id": "1:0:android:0000000000000000", "android_client_info": {"package_name": "com.nota.notes.mock"}}}
+              ],
+              "configuration_version": "1"
+            }
+            EOF
+            echo "placeholder google-services.json written (Google Sign-In non-functional)"
+          fi
+
       # R8 OOM mitigation: runners have limited disk/RAM — free space first
       - name: Free disk space
         run: |
