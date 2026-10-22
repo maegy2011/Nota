@@ -194,3 +194,8 @@ jobs:
 - run `39753864291` فشل في `processMockDebugGoogleServices` برسالة جديدة: `Missing api_key/current_key object` — الـ plugin يقبل الملف شكليًا لكنه يطلب مفتاح API لكل client.
 - الإصلاح (commit `94ec99a`): أُضيف `"api_key": [{"current_key": "CI_PLACEHOLDER"}]` لكل package في الـ placeholder.
 - أُعيد التشغيل: run `39755309062` (workflow_dispatch, variant=play) بحالة `in_progress`.
+
+### إصلاح default_web_client_id (22 أكتوبر)
+- run `39755309062` وصل للتجميع (google-services مقبول) لكن `compileMockDebugKotlin` فشل: `Unresolved reference 'default_web_client_id'` في `GoogleAuthManager.kt:38` — المورد يُولَّد فقط من `oauth_client` من نوع web (client_type 3)، والـ placeholder لم يحوه.
+- الإصلاح (commit `b0d4aa5`): أُضيف `oauth_client` وهمي (client_type 3) لكل package في الـ placeholder — كافٍ للتوليد، وقيمته غير صالحة لتسجيل دخول حقيقي (موثق).
+- أُعيد التشغيل: run `39756415460` (workflow_dispatch, variant=play) بحالة `in_progress`.
