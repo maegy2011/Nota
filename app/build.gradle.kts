@@ -25,29 +25,36 @@ android {
     signingConfigs {
         create("release") {
             // كلمات السر خارج المستودع: env أولًا ثم ملف 600 خارج المشروع — لا قيم مكتوبة هنا أبدًا
+            // CI بدون secrets: تُترك غير مُهيأة، وbuildType الـ release يسقط على debug signing (غير قابل للنشر على Play).
             val envFile = rootProject.file(System.getProperty("user.home") + "/.config/nota/signing.env")
             val envMap = if (envFile.exists()) envFile.readLines()
                 .mapNotNull { it.split("=", limit = 2).takeIf { p -> p.size == 2 }?.let { p -> p[0].trim() to p[1].trim() } }
                 .toMap() else emptyMap()
             val storePw = System.getenv("NOTA_KEYSTORE_PASSWORD") ?: envMap["NOTA_KEYSTORE_PASSWORD"]
-                ?: throw GradleException("NOTA_KEYSTORE_PASSWORD missing (env or ~/.config/nota/signing.env)")
-            val keyPw = System.getenv("NOTA_KEY_PASSWORD") ?: envMap["NOTA_KEY_PASSWORD"]
-                ?: throw GradleException("NOTA_KEY_PASSWORD missing (env or ~/.config/nota/signing.env)")
-            // Release keystore is intentionally outside the repository; legacy in-tree keys are unsupported.
-            val storePath = System.getenv("NOTA_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
-                ?: rootProject.file(System.getProperty("user.home") + "/.config/nota/nota-release.keystore").absolutePath
-            val storeFileValue = rootProject.file(storePath)
-            require(storeFileValue.isFile) { "Release keystore not found: $storePath (set NOTA_KEYSTORE_PATH)" }
-            storeFile = storeFileValue
-            storePassword = storePw
-            keyAlias = "nota"
-            keyPassword = keyPw
+            if (!storePw.isNullOrBlank()) {
+                val keyPw = System.getenv("NOTA_KEY_PASSWORD") ?: envMap["NOTA_KEY_PASSWORD"]
+                    ?: throw GradleException("NOTA_KEY_PASSWORD missing (env or ~/.config/nota/signing.env)")
+                // Release keystore is intentionally outside the repository; legacy in-tree keys are unsupported.
+                val storePath = System.getenv("NOTA_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+                    ?: rootProject.file(System.getProperty("user.home") + "/.config/nota/nota-release.keystore").absolutePath
+                val storeFileValue = rootProject.file(storePath)
+                require(storeFileValue.isFile) { "Release keystore not found: $storePath (set NOTA_KEYSTORE_PATH)" }
+                storeFile = storeFileValue
+                storePassword = storePw
+                keyAlias = "nota"
+                keyPassword = keyPw
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // بدون keystore (CI بلا secrets): توقيع debug — يعمل لكن غير قابل للنشر على Play.
+            signingConfig = if (!System.getenv("NOTA_KEYSTORE_PASSWORD").isNullOrBlank()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             // P1-C (أكتوبر 2026): التصغير مفعّل حسب الخطة — لكن ⚠️ تعارض موثق:
             // AGENTS.md (20 سبتمبر 2026، v1.0.2) يسجل أن Hilt 2.52 كسر الإقلاع مع R8
             // (NotaApp_GeneratedInjector يُفلتر من الـ pipeline → NoClassDefFoundError عند البدء).
