@@ -12,28 +12,31 @@ import kotlinx.coroutines.flow.Flow
 interface NoteDao {
     // التصنيف: تسمية حرة واحدة للملاحظة — مستقلة عن المجلد (حاوية) والوسوم (متعددة)
     // النشطة فقط (غير المؤرشفة) — البحث يشمل الوسوم أيضًا
-    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
+// Search excludes locked notes intentionally — locked means "content protected",
+// and search snippets would expose title + body. The locked note is still visible
+// in the main list (title + lock badge only).
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND locked = 0 AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
     fun search(q: String, acct: String?): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) ORDER BY updatedAt DESC")
     fun all(acct: String?): Flow<List<Note>>
 
     // الأرشيف فقط — مع بحث داخله (يشمل الوسوم)
-    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND locked = 0 AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
     fun searchArchived(q: String, acct: String?): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) ORDER BY updatedAt DESC")
     fun archived(acct: String?): Flow<List<Note>>
 
     // المفضلة فقط — مع بحث داخلها (تستبعد الأرشيف والمحذوفة، ويشمل الوسوم)
-    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND locked = 0 AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
     fun searchFavorites(q: String, acct: String?): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) ORDER BY updatedAt DESC")
     fun favorites(acct: String?): Flow<List<Note>>
 
     // المفضلة المؤرشفة لاحقًا — تبويب منفصل في شاشة المفضلة (لا تُضاف مؤرشفة جديدة للمفضلة أبدًا)
-    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND locked = 0 AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tagId WHERE nt.noteId = notes.id AND t.name LIKE '%' || :q || '%')) ORDER BY updatedAt DESC")
     fun searchFavoritesArchived(q: String, acct: String?): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE deletedAt IS NULL AND archivedAt IS NOT NULL AND favorite = 1 AND (ownerAccountId IS NULL OR ownerAccountId = :acct) ORDER BY updatedAt DESC")
@@ -103,7 +106,7 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) ORDER BY deletedAt DESC")
     fun trashed(acct: String?): Flow<List<Note>>
 
-    @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%') ORDER BY deletedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL AND (ownerAccountId IS NULL OR ownerAccountId = :acct) AND locked = 0 AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%') ORDER BY deletedAt DESC")
     fun searchTrashed(q: String, acct: String?): Flow<List<Note>>
 
     @Query("UPDATE notes SET deletedAt = :at WHERE id = :id AND deletedAt IS NULL")

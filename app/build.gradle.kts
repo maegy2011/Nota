@@ -20,6 +20,7 @@ android {
         // الترقيم الرسمي يبدأ من 1.0.0 — versionCode داخلي متسلسل حتى يقبل أندرويد التحديث فوق النسخ السابقة
         versionCode = 51
         versionName = "1.26.2"
+        buildConfigField("Boolean", "USE_FAKE_BILLING", "false")
     }
 
     signingConfigs {
@@ -61,18 +62,12 @@ android {
         }
     }
 
-    // نكهات الطبقة (خارطة المدفوعة §4): mock للتجربة الوهمية — play للإنتاج بلا أي Fake في كودها
-    flavorDimensions += "tier"
-    productFlavors {
-        create("mock") {
-            dimension = "tier"
-            applicationIdSuffix = ".mock"
-            versionNameSuffix = "-mock"
-            buildConfigField("Boolean", "USE_FAKE_BILLING", "true")
-        }
-        create("play") {
-            dimension = "tier"
-            buildConfigField("Boolean", "USE_FAKE_BILLING", "false")
+    // نسخة واحدة: com.nota.notes (play) — بلا mock flavour
+
+    sourceSets {
+        getByName("main") {
+            java.srcDirs("src/main/java", "src/play/java")
+            res.srcDirs("src/main/res", "src/play/res")
         }
     }
 
