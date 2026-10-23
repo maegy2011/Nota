@@ -749,6 +749,7 @@
     <string name="pin_menu">تثبيت بالدبوس</string>
     <string name="unpin_menu">إلغاء التثبيت</string>
     <string name="pinned_cd">مثبتة</string>
+    <string name="archived_cd">مؤرشفة</string>
     <string name="paywall_title">نوتا برو ✦</string>
     <string name="paywall_sub">ادعم التطوير وافتح مزايا تنظيم أقوى — ملاحظاتك تبقى على جهازك كما هي</string>
     <string name="paywall_f1">📁 مجلدات بلا حدود لتنظيم ملاحظاتك</string>

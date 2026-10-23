@@ -727,6 +727,7 @@
     <string name="pin_menu">Pin</string>
     <string name="unpin_menu">Unpin</string>
     <string name="pinned_cd">Pinned</string>
+    <string name="archived_cd">Archived</string>
     <string name="paywall_title">Nota Pro ✦</string>
     <string name="paywall_sub">Support development and unlock stronger organizing — your notes stay on your device</string>
     <string name="paywall_f1">📁 Unlimited folders to organize your notes</string>

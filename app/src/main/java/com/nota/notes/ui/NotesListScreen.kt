@@ -6,6 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -237,7 +241,8 @@ fun NotesListScreen(
                     if (selectionMode) {
                         Text(
                             stringResource(R.string.selected_count, sel.size),
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }
                         )
                     } else if (searchOpen) {
                         // مربع البحث يظهر في نفس مكان الهيدر — الارتفاع يتضبط تلقائيًا مع TopAppBar
@@ -458,7 +463,7 @@ fun NotesListScreen(
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }
                 )
                 if (hasActiveFilter) {
                     TextButton(onClick = { onColorFilter(null); onTagFilter(null); onCategoryFilter(null); onIncludeArchive(false) }) {
@@ -529,6 +534,13 @@ fun NotesListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(shown, key = { it.id }, contentType = { "note" }) { n ->
+                        val cardContentDescription = buildString {
+                            append(n.title)
+                            if (n.locked) append(" — ").append(stringResource(R.string.locked_cd))
+                            if (n.archivedAt != null) append(" — ").append(stringResource(R.string.archived_cd))
+                            if (n.favorite) append(" — ").append(stringResource(R.string.fav_cd))
+                            if (n.pinned) append(" — ").append(stringResource(R.string.pinned_cd))
+                        }
                         // خلفية Sticky Notes حسب لون الملاحظة — النصوص تتبع لونها المقروء تلقائيًا
                         val cardBg = noteCardBg(n.color)
                         val cardOn = noteCardOn(n.color)
@@ -545,7 +557,9 @@ fun NotesListScreen(
                             modifier = Modifier.fillMaxWidth().combinedClickable(
                                 onClick = { if (selectionMode) toggle(n.id) else onOpen(n.id) },
                                 onLongClick = { selected = selected + n.id }
-                            )
+                            ).semantics {
+                                contentDescription = cardContentDescription
+                            }
                         ) {
                             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
                                 // مربع التحديد يظهر في وضع التحديد فقط
