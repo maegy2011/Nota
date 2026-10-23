@@ -136,7 +136,8 @@ class NotesViewModel @Inject constructor(
             sortNotes(filtered, sort)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun archive(id: Long) = viewModelScope.launch { repo.archive(id) }
+    fun archive(id: Long) = viewModelScope.launch { archiveNow(id) }
+    internal suspend fun archiveNow(id: Long) { repo.archive(id) }
     fun unarchive(id: Long) = viewModelScope.launch { repo.unarchive(id) }
 
     // النسخ الاحتياطي (v3): الملاحظات + المجلدات + بطاقة النسخة — التشفير في BackupManager
@@ -213,7 +214,7 @@ class NotesViewModel @Inject constructor(
         repo.save(id, title, body, color, folderId, background, lat, lng, category)
     // المرحلة 1ج: نسخة متزامنة-المصادر من premiumVm.isPro() — الـ UI يمنع أصلًا (proLock)،
     // وهذا يحمي من السباقات والاستدعاءات المباشرة. الرفض صامت هنا عمدًا: التغذية الراجعة في الـ UI.
-    private suspend fun proNow(): Boolean {
+    internal suspend fun proNow(): Boolean {
         if (com.nota.notes.data.SettingsStore.isTrialActive(store.trialStart.first())) return true
         return entitlements.cached.first().pro
     }
@@ -265,10 +266,11 @@ class NotesViewModel @Inject constructor(
         return repo.duplicate(id, newTitle)
     }
     // التذكير — حفظ/مسح + إعادة جدولة الكل (إقلاع/استعادة)
-    fun setReminder(id: Long, spec: com.nota.notes.data.ReminderSpec) = viewModelScope.launch {
+    fun setReminder(id: Long, spec: com.nota.notes.data.ReminderSpec) = viewModelScope.launch { setReminderNow(id, spec) }
+    internal suspend fun setReminderNow(id: Long, spec: com.nota.notes.data.ReminderSpec) {
         // Pro gating (defense-in-depth) — UI also gates via showProLocks.
         // Direct VM callers (widgets, deep links, future features) bypass UI gating.
-        if (!proNow()) return@launch
+        if (!proNow()) return
         runCatching { repo.setReminder(id, spec) }
     }
     fun setReminder(id: Long, at: Long, repeat: String, beforeMin: Long) = setReminder(id, com.nota.notes.data.ReminderSpec(at = at, repeat = repeat, beforeMin = beforeMin))
@@ -291,10 +293,11 @@ class NotesViewModel @Inject constructor(
         acctTick.flatMapLatest { repo.categories() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categoryCounts: StateFlow<Map<String, Int>> =
         acctTick.flatMapLatest { repo.categoryCounts() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
-    fun setCategory(id: Long, category: String?) = viewModelScope.launch {
+    fun setCategory(id: Long, category: String?) = viewModelScope.launch { setCategoryNow(id, category) }
+    internal suspend fun setCategoryNow(id: Long, category: String?) {
         // Pro gating (defense-in-depth) — UI also gates via showProLocks.
         // Direct VM callers (widgets, deep links, future features) bypass UI gating.
-        if (!proNow()) return@launch
+        if (!proNow()) return
         runCatching { repo.setCategory(id, category) }
     }
     fun renameCategory(old: String, newName: String) = viewModelScope.launch { runCatching { repo.renameCategory(old, newName) } }
@@ -303,19 +306,21 @@ class NotesViewModel @Inject constructor(
     fun createTag(name: String) = viewModelScope.launch { runCatching { repo.createTag(name) } }
     // وسوم ملاحظة واحدة — تُحمَّل عند الفتح وتُحفظ مع كل حفظ
     suspend fun loadTags(id: Long): List<String> = runCatching { repo.tagsOf(id) }.getOrDefault(emptyList())
-    fun saveTags(id: Long, tags: List<String>) = viewModelScope.launch {
+    fun saveTags(id: Long, tags: List<String>) = viewModelScope.launch { saveTagsNow(id, tags) }
+    internal suspend fun saveTagsNow(id: Long, tags: List<String>) {
         // Pro gating (defense-in-depth) — UI also gates via showProLocks.
         // Direct VM callers (widgets, deep links, future features) bypass UI gating.
-        if (!proNow()) return@launch
+        if (!proNow()) return
         runCatching { repo.setTags(id, tags) }
     }
     // محتوى الملاحظة: مهام + مرفقات — تحميل/إضافة/قلب/حذف (الفشل صامت كالوسوم)
     suspend fun loadTasks(id: Long): List<com.nota.notes.data.ChecklistItem> = runCatching { repo.tasksOf(id) }.getOrDefault(emptyList())
     suspend fun loadAttachments(id: Long): List<com.nota.notes.data.NoteAttachment> = runCatching { repo.attachmentsOf(id) }.getOrDefault(emptyList())
-    fun addTask(id: Long, text: String, onDone: (Long) -> Unit = {}) = viewModelScope.launch {
+    fun addTask(id: Long, text: String, onDone: (Long) -> Unit = {}) = viewModelScope.launch { addTaskNow(id, text, onDone) }
+    internal suspend fun addTaskNow(id: Long, text: String, onDone: (Long) -> Unit = {}) {
         // Pro gating (defense-in-depth) — UI also gates via showProLocks.
         // Direct VM callers (widgets, deep links, future features) bypass UI gating.
-        if (!proNow()) return@launch
+        if (!proNow()) return
         runCatching { repo.addTask(id, text) }.onSuccess { if (it > 0) onDone(it) }
     }
     fun toggleTask(item: com.nota.notes.data.ChecklistItem, onDone: () -> Unit = {}) = viewModelScope.launch {

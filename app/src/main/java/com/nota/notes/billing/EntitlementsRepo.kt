@@ -22,7 +22,7 @@ private val Context.entitlementsCache by preferencesDataStore("entitlements_cach
 // طبقة الاستحقاق: تسأل السيرفر مع كاش DataStore قصير (~24h) للعمل أوفلاين.
 // بلا حساب مسجل → FREE دائمًا. أي فشل شبكة → آخر كاش معروف (الأوفلاين أولًا).
 @Singleton
-class EntitlementsRepo @Inject constructor(
+open class EntitlementsRepo @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val api: EntitlementsApi,
     private val accounts: AccountStore,
@@ -42,7 +42,7 @@ class EntitlementsRepo @Inject constructor(
     }
 
     // الكاش مربوط بالحساب: تبدّل الحساب يُسقط كاش القديم فورًا — فلا يرث مستخدم PRO غيره
-    val cached: Flow<Entitlement> = ctx.entitlementsCache.data.combine(accounts.accountId) { store, acct ->
+    open val cached: Flow<Entitlement> = ctx.entitlementsCache.data.combine(accounts.accountId) { store, acct ->
         if (acct == null || store[K_ACCOUNT] != acct) Entitlement.FREE
         else Entitlement(
             pro = store[K_PRO] ?: false,
@@ -53,7 +53,7 @@ class EntitlementsRepo @Inject constructor(
 
     // تحديث من السيرفر: كاش طازج يُعاد فورًا (ما لم يُطلب force)، وإلا سؤال جديد ثم حفظ.
     // شفاء ذاتي: قبل أي سؤال شبكة يُضمَن التسجيل أولًا (idempotent) فيُنشَأ أي حساب مفقود.
-    suspend fun refresh(force: Boolean = false): Entitlement = withContext(Dispatchers.IO) {
+    open suspend fun refresh(force: Boolean = false): Entitlement = withContext(Dispatchers.IO) {
         val accountId = accounts.currentAccountId() ?: return@withContext Entitlement.FREE
         val store = ctx.entitlementsCache.data.first()
         val cachedAt = store[K_CACHED_AT] ?: 0L

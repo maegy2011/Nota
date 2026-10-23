@@ -11,26 +11,26 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 // يعمل عبر DbHolder المعلّق — أول وصول يفتح المشفر على IO دون تجميد الواجهة
-class NotesRepository(
+open class NotesRepository(
     private val holder: DbHolder,
     @ApplicationContext private val appCtx: Context,
     private val accounts: AccountStore
 ) {
     // فصل الحسابات: الحساب الحالي يُمرَّر لكل استعلام — فلا تتداخل ملاحظات مستخدمين أبدًا
     // تغيّره يُعيد تشغيل كل التدفقات (تُجمَع معه في الـ ViewModels) — فالخروج/الدخول يبدّل القوائم فورًا
-    fun accountChanges(): kotlinx.coroutines.flow.Flow<String?> = accounts.accountId
+    open fun accountChanges(): kotlinx.coroutines.flow.Flow<String?> = accounts.accountId
     private suspend fun acct(): String? = accounts.currentAccountId()
     // الإتلاف الآمن اختياري: null = حذف عادي، وإلا طريقة التمريرات من الإعدادات
     private val shredPrefs = SettingsStore(appCtx)
     private suspend fun shredMethod(): String? =
         if (shredPrefs.shredEnabled.first()) shredPrefs.shredMethod.first() else null
-    fun all(): Flow<List<Note>> = flow { emitAll(holder.dao().all(acct())) }
-    fun search(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().search(q.trim(), acct())) }
+    open fun all(): Flow<List<Note>> = flow { emitAll(holder.dao().all(acct())) }
+    open fun search(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().search(q.trim(), acct())) }
     // السلة (27 سبتمبر 2026): قائمة + بحث — بنطاق الحساب كالبقية
-    fun trashed(): Flow<List<Note>> = flow { emitAll(holder.dao().trashed(acct())) }
-    fun searchTrash(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchTrashed(q.trim(), acct())) }
+    open fun trashed(): Flow<List<Note>> = flow { emitAll(holder.dao().trashed(acct())) }
+    open fun searchTrash(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchTrashed(q.trim(), acct())) }
     // نقل نرم للسلة: deletedAt=الآن + إلغاء المنبه (فلا ينطلق لملاحظة محذوفة)
-    suspend fun trashOne(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun trashOne(id: Long) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         dao.byId(id)?.let { n ->
             if (n.deletedAt == null) {
@@ -40,11 +40,11 @@ class NotesRepository(
             }
         }
     }
-    suspend fun trashMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
+    open suspend fun trashMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
         ids.forEach { trashOne(it) }
     }
     // الاستعادة تُعيد تسجيل السياج إن وُجدت إحداثياته، وتُعيد جدولة التذكيرات فورًا (27 سبتمبر 2026)
-    suspend fun restoreOne(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun restoreOne(id: Long) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         dao.restore(id)
         dao.byId(id)?.let { n ->
@@ -54,10 +54,10 @@ class NotesRepository(
             com.nota.notes.reminder.ReminderScheduler.rescheduleAll(appCtx)
         }
     }
-    suspend fun restoreMany(ids: Set<Long>) = withContext(Dispatchers.IO) { ids.forEach { restoreOne(it) } }
+    open suspend fun restoreMany(ids: Set<Long>) = withContext(Dispatchers.IO) { ids.forEach { restoreOne(it) } }
     // P3-D2: ترحيل أسماء legacy → معتمة (idempotent) — الملف + جانبي .key معًا، ثم مراجع DB.
     // اليتيم (بلا مرجع DB) يُعتَّم أيضًا بلا ضرر. كل خطوة محمية — الفشل لا يُسقط الصيانة.
-    suspend fun migrateMediaFilenames() = withContext(Dispatchers.IO) {
+    open suspend fun migrateMediaFilenames() = withContext(Dispatchers.IO) {
         runCatching {
             val content = holder.get().content()
             renameDirFiles(NoteMediaFiles.dir(appCtx)) { old, new ->
@@ -90,7 +90,7 @@ class NotesRepository(
     }
 
     // تطهير المنتهية (30 يومًا): حذف نهائي كامل (ملفات + منبهات) — تُستدعى عند فتح القفل
-    suspend fun purgeTrash(): Int = withContext(Dispatchers.IO) {
+    open suspend fun purgeTrash(): Int = withContext(Dispatchers.IO) {
         runCatching { migrateMediaFilenames() } // P3-D2: صيانة فتح القفل تشمل تعتيم الأسماء القديمة
         val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
         val ids = holder.dao().expiredIds(cutoff, acct())
@@ -99,8 +99,8 @@ class NotesRepository(
     }
     // الحذف النهائي الكامل (كان جسم delete): ملفات + إتلاف + منبه + أيتام + VACUUM
     // عناوين الأحدث للويدجت — تُقرأ بعد فتح القفل فقط (الـ provider لا يفك التشفير أبدًا)
-    suspend fun latestTitles(limit: Int = 3): List<String> = holder.dao().latestTitles(limit, acct())
-    suspend fun save(id: Long?, title: String, body: String, color: Int = 0, folderId: Long? = null, background: String? = null, lat: Double? = null, lng: Double? = null, category: String? = null): Long {
+    open suspend fun latestTitles(limit: Int = 3): List<String> = holder.dao().latestTitles(limit, acct())
+    open suspend fun save(id: Long?, title: String, body: String, color: Int = 0, folderId: Long? = null, background: String? = null, lat: Double? = null, lng: Double? = null, category: String? = null): Long {
         val dao = holder.dao()
         val now = System.currentTimeMillis()
         val cat = category?.trim()?.take(64)?.takeIf { it.isNotBlank() }
@@ -119,7 +119,7 @@ class NotesRepository(
     }
     // تكرار ملاحظة: نفس المحتوى واللون والمجلد والخلفية (ملف مستقل) — بلا دبوس ولا مفضلة — والقفل يُورَّث حتى لا تتسرب المقفلة بنسخة مفتوحة
     // العنوان الجديد يُبنى خارجًا (صيغة copy_title_fmt) — يرجع معرف النسخة أو -1
-    suspend fun duplicate(id: Long, newTitle: String): Long = withContext(Dispatchers.IO) {
+    open suspend fun duplicate(id: Long, newTitle: String): Long = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val old = dao.byId(id) ?: return@withContext -1L
         val now = System.currentTimeMillis()
@@ -158,14 +158,14 @@ class NotesRepository(
         newId
     }
     // القفل الخاص — يقلب الحالة (updatedAt لا تتغير حتى لا تقفز المقفلة زمنيًا)
-    suspend fun toggleLock(id: Long): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun toggleLock(id: Long): Boolean = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val old = dao.byId(id) ?: return@withContext false
         dao.update(old.copy(locked = !old.locked))
         !old.locked
     }
     // التثبيت بالدبوس — يقلب الحالة (updatedAt لا تتغير حتى لا تقفز المثبتة للأعلى زمنيًا)
-    suspend fun togglePin(id: Long): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun togglePin(id: Long): Boolean = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val old = dao.byId(id) ?: return@withContext false
         dao.update(old.copy(pinned = !old.pinned))
@@ -173,60 +173,60 @@ class NotesRepository(
     }
 
     // الوسوم: كل الأسماء + خريطة noteId ← أسماء + تعيين كامل لملاحظة
-    fun allTags(): Flow<List<Tag>> = flow { emitAll(holder.tagDao().allTags(acct())) }
-    fun tagsMap(): Flow<Map<Long, List<String>>> =
+    open fun allTags(): Flow<List<Tag>> = flow { emitAll(holder.tagDao().allTags(acct())) }
+    open fun tagsMap(): Flow<Map<Long, List<String>>> =
         flow { emitAll(holder.tagDao().allMappings(acct())) }.map { rows -> rows.groupBy({ it.noteId }, { it.name }) }
-    suspend fun tagsOf(noteId: Long): List<String> = holder.tagDao().tagsOf(noteId)
+    open suspend fun tagsOf(noteId: Long): List<String> = holder.tagDao().tagsOf(noteId)
     // إدارة الوسوم: العدّادات + إعادة التسمية (تدمج) + الحذف (يفك الروابط فقط)
-    fun tagCounts(): Flow<Map<String, Int>> =
+    open fun tagCounts(): Flow<Map<String, Int>> =
         flow { emitAll(holder.tagDao().tagCounts(acct())) }.map { rows -> rows.associate { it.name to it.count } }
-    suspend fun renameTag(old: String, newName: String) = holder.tagDao().renameTag(old, newName)
+    open suspend fun renameTag(old: String, newName: String) = holder.tagDao().renameTag(old, newName)
     // إنشاء وسم مستقل من الإدارة (قرار 26 سبتمبر 2026): يُحفظ بلا ملاحظات — يظهر بعدّاد صفر
-    suspend fun createTag(name: String) {
+    open suspend fun createTag(name: String) {
         val clean = name.trim()
         if (clean.isEmpty()) return
         holder.tagDao().insertTags(listOf(com.nota.notes.data.Tag(name = clean)))
     }
 
     // التصنيفات: تسمية واحدة حرة للملاحظة — بنطاق الحساب الحالي كبقية الاستعلامات
-    fun categories(): Flow<List<String>> =
+    open fun categories(): Flow<List<String>> =
         flow { emitAll(holder.dao().distinctCategories(acct())) }
-    fun categoryCounts(): Flow<Map<String, Int>> =
+    open fun categoryCounts(): Flow<Map<String, Int>> =
         flow { emitAll(holder.dao().categoryCounts(acct())) }.map { rows -> rows.associate { it.name to it.count } }
-    suspend fun setCategory(id: Long, category: String?) {
+    open suspend fun setCategory(id: Long, category: String?) {
         val dao = holder.dao()
         val n = dao.byId(id) ?: return
         if (n.ownerAccountId != null && n.ownerAccountId != acct()) return
         dao.update(n.copy(category = category?.trim()?.take(64)?.takeIf { it.isNotBlank() }, updatedAt = System.currentTimeMillis()))
     }
-    suspend fun renameCategory(old: String, newName: String) {
+    open suspend fun renameCategory(old: String, newName: String) {
         val clean = newName.trim().take(64)
         if (clean.isBlank()) return
         holder.dao().renameCategory(acct(), old, clean)
     }
-    suspend fun clearCategory(name: String) = holder.dao().clearCategory(acct(), name)
-    suspend fun deleteTag(name: String) = holder.tagDao().deleteTag(name)
+    open suspend fun clearCategory(name: String) = holder.dao().clearCategory(acct(), name)
+    open suspend fun deleteTag(name: String) = holder.tagDao().deleteTag(name)
     // شاشة التنبيهات: كل ذات الموعد مرتبة بالأقرب
-    fun reminders(): Flow<List<Note>> = flow { emitAll(holder.dao().reminded(acct())) }
-    suspend fun setTags(noteId: Long, names: List<String>) = holder.tagDao().setTags(noteId, names)
+    open fun reminders(): Flow<List<Note>> = flow { emitAll(holder.dao().reminded(acct())) }
+    open suspend fun setTags(noteId: Long, names: List<String>) = holder.tagDao().setTags(noteId, names)
     // الأرشيف: إخفاء من الرئيسية بلا حذف — والاستعادة تعيدها نشطة
-    suspend fun archive(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun archive(id: Long) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         dao.byId(id)?.let { dao.update(it.copy(archivedAt = System.currentTimeMillis())) }
     }
-    suspend fun unarchive(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun unarchive(id: Long) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         dao.byId(id)?.let { dao.update(it.copy(archivedAt = null)) }
     }
-    fun archived(): Flow<List<Note>> = flow { emitAll(holder.dao().archived(acct())) }
-    fun searchArchived(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchArchived(q.trim(), acct())) }
+    open fun archived(): Flow<List<Note>> = flow { emitAll(holder.dao().archived(acct())) }
+    open fun searchArchived(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchArchived(q.trim(), acct())) }
     // المفضلة: بحث مستقل + قلب يقلب الحالة (updatedAt لا تتغير)
-    fun favorites(): Flow<List<Note>> = flow { emitAll(holder.dao().favorites(acct())) }
-    fun searchFavorites(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchFavorites(q.trim(), acct())) }
+    open fun favorites(): Flow<List<Note>> = flow { emitAll(holder.dao().favorites(acct())) }
+    open fun searchFavorites(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchFavorites(q.trim(), acct())) }
     // المفضلة المؤرشفة لاحقًا — تبويب منفصل (قراءة فقط من حيث الإضافة)
-    fun favoritesArchived(): Flow<List<Note>> = flow { emitAll(holder.dao().favoritesArchived(acct())) }
-    fun searchFavoritesArchived(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchFavoritesArchived(q.trim(), acct())) }
-    suspend fun toggleFavorite(id: Long): Boolean = withContext(Dispatchers.IO) {
+    open fun favoritesArchived(): Flow<List<Note>> = flow { emitAll(holder.dao().favoritesArchived(acct())) }
+    open fun searchFavoritesArchived(q: String): Flow<List<Note>> = flow { emitAll(holder.dao().searchFavoritesArchived(q.trim(), acct())) }
+    open suspend fun toggleFavorite(id: Long): Boolean = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val old = dao.byId(id) ?: return@withContext false
         // المؤرشفة لا تُضاف للمفضلة أبدًا — الإزالة منها مسموحة فقط
@@ -234,7 +234,7 @@ class NotesRepository(
         dao.update(old.copy(favorite = !old.favorite))
         !old.favorite
     }
-    suspend fun unfavoriteMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
+    open suspend fun unfavoriteMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         ids.forEach { dao.byId(it)?.let { dao.update(it.copy(favorite = false)) } }
     }
@@ -242,23 +242,23 @@ class NotesRepository(
     // النسخ الاحتياطي: كل الملاحظات (نشطة + أرشيف) دفعة واحدة
     // النسخ الاحتياطي: كل الملاحظات مع وسومها وتذكيراتها — التشفير في BackupManager
     // أحدث تعديل محلي — لتحذير القدم عند المعاينة (27 سبتمبر 2026)
-    suspend fun newestUpdate(): Long = withContext(Dispatchers.IO) {
+    open suspend fun newestUpdate(): Long = withContext(Dispatchers.IO) {
         runCatching { holder.dao().newestUpdate(acct()) ?: 0L }.getOrDefault(0L)
     }
 
     // نسخة التطبيق لبطاقة النسخة (v3) — تُقرأ مرة واحدة وتُمرَّر للترميز
-    fun appVersion(): String = runCatching {
+    open fun appVersion(): String = runCatching {
         appCtx.packageManager.getPackageInfo(appCtx.packageName, 0).versionName ?: ""
     }.getOrDefault("")
 
     // مجلدات الحساب للنسخة (v3): الاسم + اللون — تُعاد عند الاستعادة
-    suspend fun backupFolders(): List<BackupFolder> = withContext(Dispatchers.IO) {
+    open suspend fun backupFolders(): List<BackupFolder> = withContext(Dispatchers.IO) {
         runCatching { holder.folderDao().allOnce(acct()) }.getOrDefault(emptyList())
             .map { BackupFolder(it.name, it.color) }
     }
 
     // نسخة أمان تلقائية قبل أي استعادة دمج (27 سبتمبر 2026): مشفرة بمفتاح الجهاز في files — يُحتفظ بآخر 3 فقط
-    suspend fun safetySnapshot(): Unit = withContext(Dispatchers.IO) {
+    open suspend fun safetySnapshot(): Unit = withContext(Dispatchers.IO) {
         runCatching {
             val dir = java.io.File(appCtx.filesDir, "auto-backups").also { it.mkdirs() }
             val json = BackupCodec.encode(backupNotes(), backupFolders(), appVersion())
@@ -267,7 +267,7 @@ class NotesRepository(
         }
     }
 
-    suspend fun backupNotes(): List<BackupNote> = withContext(Dispatchers.IO) {
+    open suspend fun backupNotes(): List<BackupNote> = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val tagDao = holder.tagDao()
         // خريطة المجلدات id→name لحفظ العضوية في النسخة (v3)
@@ -297,7 +297,7 @@ class NotesRepository(
 
     // المرحلة 0 — أول دخول بحساب: الملاحظات المحلية اليتيمة تُنسب للحساب (تبقى مشفرة على الجهاز كما هي)
     // نسب اليتيم (ملاحظات + مجلدات) للحساب عند أول دخول — تبقى مشفرة على الجهاز كما هي
-    suspend fun claimLocalNotes(accountId: String): Int = withContext(Dispatchers.IO) {
+    open suspend fun claimLocalNotes(accountId: String): Int = withContext(Dispatchers.IO) {
         val n = holder.dao().claimUnowned(accountId)
         runCatching { holder.folderDao().claimUnowned(accountId) }
         n
@@ -308,7 +308,7 @@ class NotesRepository(
     // يرجع (مضافة، متخطاة، تعارضات). الأرشيف يُستعاد مؤرشفًا لأنه محفوظ في النسخة
     // نتيجة الدمج — addedIds للتراجع الآمن (نقل للسلة لا حذف) — سجل الاستعادة (27 سبتمبر 2026)
     data class RestoreResult(val added: Int, val skipped: Int, val addedIds: List<Long>, val conflicts: List<BackupConflict> = emptyList())
-    suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList(), selectedIds: Set<String>? = null): RestoreResult = withContext(Dispatchers.IO) {
+    open suspend fun restoreMerge(items: List<BackupNote>, folders: List<BackupFolder> = emptyList(), selectedIds: Set<String>? = null): RestoreResult = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val folderIds = ensureFolders(folders)
         // كشف المكرر بنطاق الحساب الحالي — يشمل السلة فلا تتكرر مستعادة محذوفة
@@ -397,7 +397,7 @@ class NotesRepository(
     }
 
     // P3-3ب: "خذ من النسخة" — تحديث الملاحظة المحلية (نفس id) بمحتوى النسخة. يرجع false إن غابت.
-    suspend fun takeRemote(remote: BackupNote): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun takeRemote(remote: BackupNote): Boolean = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val cur = remote.id.toLongOrNull()?.let { dao.byId(it) } ?: return@withContext false
         // نطاق الحساب: لا تُحدَّث ملاحظة حساب آخر.
@@ -440,20 +440,20 @@ class NotesRepository(
     }
 
     // P3-3ب: "احتفظ بالاثنين" — إدراج النسخة كملاحظة جديدة. يرجع Room ID الجديد.
-    suspend fun keepBoth(remote: BackupNote): Long = withContext(Dispatchers.IO) {
+    open suspend fun keepBoth(remote: BackupNote): Long = withContext(Dispatchers.IO) {
         insertBackupNote(remote, ensureFolders(emptyList()))
     }
 
     // سجل الاستعادة عبر مخزن الإعدادات — تمرير للواجهات (27 سبتمبر 2026)
-    fun restoreLog(): kotlinx.coroutines.flow.Flow<List<RestoreRecord>> = shredPrefs.restoreLog
-    suspend fun restoreLogOnce(): List<RestoreRecord> = shredPrefs.restoreLog.first()
-    suspend fun logRestore(r: RestoreRecord) = shredPrefs.logRestore(r)
-    suspend fun markRestoreUndone(id: Long) = shredPrefs.markRestoreUndone(id)
+    open fun restoreLog(): kotlinx.coroutines.flow.Flow<List<RestoreRecord>> = shredPrefs.restoreLog
+    open suspend fun restoreLogOnce(): List<RestoreRecord> = shredPrefs.restoreLog.first()
+    open suspend fun logRestore(r: RestoreRecord) = shredPrefs.logRestore(r)
+    open suspend fun markRestoreUndone(id: Long) = shredPrefs.markRestoreUndone(id)
     // P3-3ب: تحديث سجل (حل تعارض) — يُمرَّر للمخزن.
-    suspend fun replaceRestore(r: RestoreRecord) = shredPrefs.replaceRestore(r)
+    open suspend fun replaceRestore(r: RestoreRecord) = shredPrefs.replaceRestore(r)
 
     // التراجع عن دمج: المضافة تُنقل للسلة (قابلة للاستعادة 30 يومًا) — لا حذف نهائي أبدًا (27 سبتمبر 2026)
-    suspend fun undoRestore(ids: List<Long>): Int = withContext(Dispatchers.IO) {
+    open suspend fun undoRestore(ids: List<Long>): Int = withContext(Dispatchers.IO) {
         var n = 0
         ids.forEach { id ->
             runCatching {
@@ -465,7 +465,7 @@ class NotesRepository(
     }
 
     // التذكير: حفظ الموعد والتكرار والإشعار المسبق + جدولة المنبه — والمسح يلغي المنبه
-    suspend fun setReminder(id: Long, spec: ReminderSpec) = withContext(Dispatchers.IO) {
+    open suspend fun setReminder(id: Long, spec: ReminderSpec) = withContext(Dispatchers.IO) {
         holder.dao().byId(id)?.let {
             holder.dao().update(it.copy(reminderAt = spec.at, reminderRepeat = spec.repeat,
                 reminderBeforeMin = spec.beforeMin, repeatInterval = spec.interval.coerceIn(1, 99),
@@ -476,7 +476,7 @@ class NotesRepository(
         }
     }
     // تذكير الموقع (27 سبتمبر 2026): حفظ الإحداثيات + تسجيل السياج — والمسح يلغي التسجيل
-    suspend fun setGeofence(id: Long, lat: Double, lng: Double, radiusM: Float, name: String) = withContext(Dispatchers.IO) {
+    open suspend fun setGeofence(id: Long, lat: Double, lng: Double, radiusM: Float, name: String) = withContext(Dispatchers.IO) {
         holder.dao().byId(id)?.let {
             holder.dao().update(it.copy(geoLat = lat, geoLng = lng,
                 geoRadiusM = radiusM.coerceIn(com.nota.notes.geo.GeoScheduler.MIN_RADIUS, com.nota.notes.geo.GeoScheduler.MAX_RADIUS),
@@ -484,16 +484,16 @@ class NotesRepository(
             com.nota.notes.geo.GeoScheduler.add(appCtx, id, lat, lng, radiusM)
         }
     }
-    suspend fun clearGeofence(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun clearGeofence(id: Long) = withContext(Dispatchers.IO) {
         holder.dao().byId(id)?.let {
             holder.dao().update(it.copy(geoLat = null, geoLng = null, geoName = ""))
             com.nota.notes.geo.GeoScheduler.remove(appCtx, id)
         }
     }
     // توافق قديم: الثلاثية الكلاسيكية (تُستخدم داخليًا فقط)
-    suspend fun setReminder(id: Long, at: Long, repeat: String, beforeMin: Long) =
+    open suspend fun setReminder(id: Long, at: Long, repeat: String, beforeMin: Long) =
         setReminder(id, ReminderSpec(at = at, repeat = repeat, beforeMin = beforeMin))
-    suspend fun clearReminder(id: Long) = withContext(Dispatchers.IO) {
+    open suspend fun clearReminder(id: Long) = withContext(Dispatchers.IO) {
         holder.dao().byId(id)?.let {
             holder.dao().update(it.copy(reminderAt = null, reminderRepeat = com.nota.notes.reminder.ReminderScheduler.REPEAT_NONE, reminderBeforeMin = 0L,
                 repeatInterval = 1, repeatDays = "", repeatMonthMode = ReminderSpec.MONTH_SAME,
@@ -502,7 +502,7 @@ class NotesRepository(
         }
     }
     // إعادة جدولة كل المنبهات المستقبلية — عند فتح القفل وبعد الاستعادة
-    suspend fun rescheduleReminders() = withContext(Dispatchers.IO) {
+    open suspend fun rescheduleReminders() = withContext(Dispatchers.IO) {
         com.nota.notes.reminder.ReminderScheduler.rescheduleAll(appCtx)
     }
     // إلغاء منبه المحذوفة — حتى لا تنطلق لملاحظة لم تعد موجودة
@@ -510,27 +510,27 @@ class NotesRepository(
     // فيمسح بقايا الصف من صفحات SQLite المحررة (freelist) — لا يبقى بايت واحد قابل للاسترجاع من الملف
     // + حذف ملف الخلفية إن وُجد — الصورة تُمسح مع ملاحظتها
     // محتوى الملاحظة: مهام checklist + مرفقات صور (الصوت والرسم لاحقًا بنفس الجدول)
-    suspend fun tasksOf(noteId: Long): List<ChecklistItem> = holder.contentDao().tasksOf(noteId)
-    suspend fun addTask(noteId: Long, text: String): Long = withContext(Dispatchers.IO) {
+    open suspend fun tasksOf(noteId: Long): List<ChecklistItem> = holder.contentDao().tasksOf(noteId)
+    open suspend fun addTask(noteId: Long, text: String): Long = withContext(Dispatchers.IO) {
         val dao = holder.contentDao()
         val clean = text.trim().take(200)
         if (clean.isEmpty()) return@withContext -1L
         val next = (dao.tasksOf(noteId).maxOfOrNull { it.sort } ?: -1) + 1
         dao.insertTask(ChecklistItem(noteId = noteId, text = clean, sort = next))
     }
-    suspend fun toggleTask(item: ChecklistItem): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun toggleTask(item: ChecklistItem): Boolean = withContext(Dispatchers.IO) {
         holder.contentDao().updateTask(item.copy(done = !item.done))
         !item.done
     }
-    suspend fun renameTask(item: ChecklistItem, text: String) = withContext(Dispatchers.IO) {
+    open suspend fun renameTask(item: ChecklistItem, text: String) = withContext(Dispatchers.IO) {
         val clean = text.trim().take(200)
         if (clean.isNotEmpty()) holder.contentDao().updateTask(item.copy(text = clean))
     }
-    suspend fun deleteTask(id: Long) = withContext(Dispatchers.IO) { holder.contentDao().deleteTask(id) }
-    suspend fun attachmentsOf(noteId: Long): List<NoteAttachment> = holder.contentDao().attachmentsOf(noteId)
-    suspend fun addAttachment(noteId: Long, file: String, kind: String = NoteAttachment.KIND_IMAGE): Long =
+    open suspend fun deleteTask(id: Long) = withContext(Dispatchers.IO) { holder.contentDao().deleteTask(id) }
+    open suspend fun attachmentsOf(noteId: Long): List<NoteAttachment> = holder.contentDao().attachmentsOf(noteId)
+    open suspend fun addAttachment(noteId: Long, file: String, kind: String = NoteAttachment.KIND_IMAGE): Long =
         withContext(Dispatchers.IO) { holder.contentDao().insertAttachment(NoteAttachment(noteId = noteId, file = file, kind = kind)) }
-    suspend fun deleteAttachment(att: NoteAttachment) = withContext(Dispatchers.IO) {
+    open suspend fun deleteAttachment(att: NoteAttachment) = withContext(Dispatchers.IO) {
         holder.contentDao().deleteAttachment(att.id)
         val m = shredMethod()
         if (m != null) NoteMediaFiles.shred(appCtx, att.file, m) else NoteMediaFiles.delete(appCtx, att.file)
@@ -548,7 +548,7 @@ class NotesRepository(
         }
     }
     // الحذف من السلة وفي التطهير = نهائي — أما حذف القوائم فنقل نرم للسلة (27 سبتمبر 2026)
-    suspend fun delete(id: Long) = trashOne(id)
+    open suspend fun delete(id: Long) = trashOne(id)
     private suspend fun hardDelete(id: Long) {
         val db = holder.get()
         val m = shredMethod()
@@ -563,27 +563,27 @@ class NotesRepository(
         runCatching { db.tags().deleteOrphans() }
         db.openHelper.writableDatabase.execSQL("VACUUM")
     }
-    suspend fun deletePermanently(id: Long) = withContext(Dispatchers.IO) { hardDelete(id) }
+    open suspend fun deletePermanently(id: Long) = withContext(Dispatchers.IO) { hardDelete(id) }
     // إفراغ السلة: حذف نهائي لكل المحذوف نرمًا — بتأكيد مزدوج من الواجهة
-    suspend fun emptyTrash() = withContext(Dispatchers.IO) {
+    open suspend fun emptyTrash() = withContext(Dispatchers.IO) {
         val db = holder.get()
         holder.dao().trashedIds(acct()).forEach { hardDelete(it) }
         db.openHelper.writableDatabase.execSQL("VACUUM")
     }
 
     // إجراءات جماعية على المحدد: VACUUM واحد بعد كل الحذف — والأرشفة تتخطى المؤرشف أصلًا
-    suspend fun archiveMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
+    open suspend fun archiveMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         val now = System.currentTimeMillis()
         ids.forEach { dao.byId(it)?.let { n -> if (n.archivedAt == null) dao.update(n.copy(archivedAt = now)) } }
     }
-    suspend fun unarchiveMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
+    open suspend fun unarchiveMany(ids: Set<Long>) = withContext(Dispatchers.IO) {
         val dao = holder.dao()
         ids.forEach { dao.byId(it)?.let { n -> if (n.archivedAt != null) dao.update(n.copy(archivedAt = null)) } }
     }
     // الجماعي من القوائم = نقل نرم — ومن السلة = نهائي (27 سبتمبر 2026)
-    suspend fun deleteMany(ids: Set<Long>) = trashMany(ids)
-    suspend fun deleteManyPermanently(ids: Set<Long>) = withContext(Dispatchers.IO) {
+    open suspend fun deleteMany(ids: Set<Long>) = trashMany(ids)
+    open suspend fun deleteManyPermanently(ids: Set<Long>) = withContext(Dispatchers.IO) {
         val db = holder.get()
         ids.forEach { hardDelete(it) }
         db.openHelper.writableDatabase.execSQL("VACUUM")
