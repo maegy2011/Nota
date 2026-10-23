@@ -79,6 +79,8 @@
     <string name="menu_unarchive">استعادة</string>
     <string name="select_all">تحديد الكل</string>
     <string name="clear_selection">مسح التحديد</string>
+    <string name="select_all_fmt">تحديد الكل (%1$d)</string>
+    <string name="clear_selection_fmt">إلغاء تحديد الكل (%1$d)</string>
     <string name="selected_count">%d محدد</string>
     <string name="batch_delete_msg">سيتم حذف %d ملاحظات نهائيًا ولا يمكن استرجاعها.</string>
     <string name="search_archive_hint">ابحث في الأرشيف…</string>

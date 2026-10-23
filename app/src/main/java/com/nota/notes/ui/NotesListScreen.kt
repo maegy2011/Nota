@@ -211,6 +211,7 @@ fun NotesListScreen(
             restore = { mutableStateOf(it.toSet()) }
         )
     ) { mutableStateOf(setOf<Long>()) }
+    LaunchedEffect(favTab) { selected = emptySet<Long>() }
     val allIds = remember(shown) { shown.map { it.id }.toSet() }
     val sel = selected.intersect(allIds) // تقليم الغائبة بعد حذف أو تغيّر القائمة
     val selectionMode = sel.isNotEmpty()
@@ -301,8 +302,8 @@ fun NotesListScreen(
                 actions = {
                     if (selectionMode) {
                         // تحديد الكل / إلغاء تحديد الكل بضغطة واحدة — زر نصي بلا اعتماد على أيقونات ناقصة
-                        TextButton(onClick = { selected = if (allIds.all { it in sel }) emptySet() else allIds }) {
-                            Text(stringResource(R.string.select_all))
+                        TextButton(onClick = { selected = if (allIds.all { it in sel }) emptySet<Long>() else allIds }) {
+                            Text(stringResource(if (allIds.all { it in sel }) R.string.clear_selection_fmt else R.string.select_all_fmt, allIds.size))
                         }
                     } else if (searchOpen) {
                         // الإضافة للمفضلة من شاشتها (قرار 26 سبتمبر 2026)

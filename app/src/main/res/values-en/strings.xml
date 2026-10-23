@@ -79,6 +79,8 @@
     <string name="menu_unarchive">Restore</string>
     <string name="select_all">Select all</string>
     <string name="clear_selection">Clear selection</string>
+    <string name="select_all_fmt">Select all (%1$d)</string>
+    <string name="clear_selection_fmt">Deselect all (%1$d)</string>
     <string name="selected_count">%d selected</string>
     <string name="batch_delete_msg">Permanently delete %d notes? Cannot be recovered.</string>
     <string name="search_archive_hint">Search archive…</string>
