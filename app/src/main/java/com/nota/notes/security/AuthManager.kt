@@ -35,7 +35,8 @@ class AuthManager(private val ctx: Context) {
     // حالة التسجيل (مراجعة أكتوبر 2026): تمييز «غير مسجّلة» (إعداد) عن «فشل تحقق» (خطأ)
     fun biometricStatus(): Int {
         val m = BiometricManager.from(ctx)
-        return m.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        // متسق مع canBiometric() (STRONG فقط) — حتى لا يُبلَّغ «مسجّلة» لبصمة ضعيفة لا تُقبل في الفتح.
+        return m.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
     }
 
     fun isBioEnrolled(): Boolean = biometricStatus() == BiometricManager.BIOMETRIC_SUCCESS
@@ -54,7 +55,7 @@ class AuthManager(private val ctx: Context) {
             })
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Nota")
-            .setSubtitle(ctx.getString(ctx.resources.getIdentifier("bio_sub", "string", ctx.packageName)))
+            .setSubtitle(ctx.getString(com.nota.notes.R.string.bio_sub))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()
         prompt.authenticate(info)
@@ -86,9 +87,9 @@ class AuthManager(private val ctx: Context) {
             })
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Nota")
-            .setSubtitle(ctx.getString(ctx.resources.getIdentifier("bio_sub", "string", ctx.packageName)))
+            .setSubtitle(ctx.getString(com.nota.notes.R.string.bio_sub))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText(ctx.getString(ctx.resources.getIdentifier("bio_use_pin", "string", ctx.packageName)))
+            .setNegativeButtonText(ctx.getString(com.nota.notes.R.string.bio_use_pin))
             .build()
         prompt.authenticate(info, crypto)
     }

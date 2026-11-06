@@ -95,6 +95,7 @@ open class NotesRepository(
         val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
         val ids = holder.dao().expiredIds(cutoff, acct())
         ids.forEach { hardDelete(it) }
+        if (ids.isNotEmpty()) runCatching { holder.get().openHelper.writableDatabase.execSQL("VACUUM") }
         ids.size
     }
     // الحذف النهائي الكامل (كان جسم delete): ملفات + إتلاف + منبه + أيتام + VACUUM
@@ -273,6 +274,9 @@ open class NotesRepository(
         // خريطة المجلدات id→name لحفظ العضوية في النسخة (v3)
         val folderNames = runCatching { holder.folderDao().allOnce(acct()) }.getOrDefault(emptyList())
             .associate { it.id to it.name }
+        // P3-Dperf: خريطة noteId→tags بجلسة واحدة (تجنب N+1 tag queries على large data)
+        val tagsByNote = runCatching { tagDao.allMappings(acct()).first() }.getOrDefault(emptyList())
+            .groupBy({ it.noteId }, { it.name })
         // النسخ للدرايف بنطاق الحساب الحالي فقط — ملاحظات حساب آخر لا تُرفع أبدًا
         // النسخة الكاملة تشمل السلة (27 سبتمبر 2026) — deletedAt يُحفظ ويُستعاد
         dao.backupAllOnce(acct()).map { n ->
@@ -283,7 +287,7 @@ open class NotesRepository(
                 deletedAt = n.deletedAt,
                 geoLat = n.geoLat, geoLng = n.geoLng, geoRadiusM = n.geoRadiusM, geoName = n.geoName,
                 locked = n.locked, background = n.background, favorite = n.favorite, category = n.category,
-                tags = runCatching { tagDao.tagsOf(n.id) }.getOrDefault(emptyList()),
+                tags = tagsByNote[n.id] ?: emptyList(),
                 reminderAt = n.reminderAt, reminderRepeat = n.reminderRepeat, reminderBeforeMin = n.reminderBeforeMin,
                 latitude = n.latitude, longitude = n.longitude,
                 repeatInterval = n.repeatInterval, repeatDays = n.repeatDays, repeatMonthMode = n.repeatMonthMode,
@@ -561,7 +565,7 @@ open class NotesRepository(
         com.nota.notes.reminder.ReminderScheduler.cancel(appCtx, id)
         // الروابط تُمسح بالتتابع تلقائيًا — والوسوم اليتيمة تُنظَّف هنا حتى لا تتراكم
         runCatching { db.tags().deleteOrphans() }
-        db.openHelper.writableDatabase.execSQL("VACUUM")
+        // VACUUM يُؤجَّل للدفعة (deleteManyPermanently/emptyTrash/purgeTrash) — تجنب O(n × DB size).
     }
     open suspend fun deletePermanently(id: Long) = withContext(Dispatchers.IO) { hardDelete(id) }
     // إفراغ السلة: حذف نهائي لكل المحذوف نرمًا — بتأكيد مزدوج من الواجهة

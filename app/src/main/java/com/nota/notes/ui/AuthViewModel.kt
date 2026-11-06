@@ -3,6 +3,7 @@ package com.nota.notes.ui
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nota.notes.data.AccountStore
 import com.nota.notes.data.DbHolder
 import com.nota.notes.data.SettingsStore
 import com.nota.notes.security.AuthManager
@@ -25,7 +26,8 @@ class AuthViewModel @Inject constructor(
     private val store: PassphraseStore,
     private val dbHolder: DbHolder,
     private val settings: SettingsStore,
-    private val cloudKeys: CloudKeyStore
+    private val cloudKeys: CloudKeyStore,
+    private val accounts: AccountStore
 ) : ViewModel() {
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded
@@ -295,9 +297,10 @@ class AuthViewModel @Inject constructor(
         // 2) بيانات القفل + مفتاح قاعدة البيانات (من المخزنين)
         runCatching { store.clearAllLockData() }
         runCatching { store.clearDbPassphrase() }
-        // 3) كل مخازن DataStore: الإعدادات + السحابة (أساسي + احتياطي)
+        // 3) كل مخازن DataStore: الإعدادات + السحابة (أساسي + احتياطي) + هوية الحساب
         runCatching { settings.clearAll() }
         runCatching { cloudKeys.clearAll() }
+        runCatching { accounts.clear() }
         // 4) كل مفاتيح Keystore — الأسماء الحقيقية من KeyManager (nota_cloud في الخطة = nota_cloud_wrap هنا)
         runCatching {
             withContext(Dispatchers.IO) {

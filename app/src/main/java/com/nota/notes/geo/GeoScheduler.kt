@@ -65,6 +65,16 @@ object GeoScheduler {
         }
     }
 
+    // إلغاء كل السياجات — عند الخروج من الحساب (سياجات الخارج لا تنطلق في جلسة غيره)
+    suspend fun cancelAll(ctx: Context, acct: String?) {
+        runCatching {
+            val app = ctx.applicationContext
+            val store = PassphraseStore(app)
+            val db = DbProvider.open(app, store.getOrCreateDbPassphrase())
+            db.notes().geofencedOnce(acct).forEach { n -> remove(app, n.id) }
+        }
+    }
+
     // إعادة التسجيل بعد الإقلاع/فتح القفل: كل السياجات النشطة للحساب الحالي
     suspend fun rescheduleAll(ctx: Context) {
         runCatching {

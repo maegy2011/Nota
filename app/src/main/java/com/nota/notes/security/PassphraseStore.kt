@@ -253,7 +253,10 @@ class PassphraseStore @Inject constructor(@ApplicationContext private val ctx: C
             return@withLock Base64.decode(it, Base64.NO_WRAP)
         }
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-        ctx.secureStore.edit { it[K_REC_SALT] = Base64.encodeToString(salt, Base64.NO_WRAP) }
+        val b64 = Base64.encodeToString(salt, Base64.NO_WRAP)
+        ctx.secureStore.edit { it[K_REC_SALT] = b64 }
+        // النسخة الاحتياطية — شفاء ذاتي عند تلف الأساسي (كما في DB passphrase و PIN salt)
+        ctx.secureStoreBak.edit { it[K_REC_SALT] = b64 }
         salt
     }
 
