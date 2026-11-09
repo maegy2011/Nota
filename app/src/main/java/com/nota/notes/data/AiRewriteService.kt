@@ -85,7 +85,6 @@ object AiRewriteService {
                 return@withContext Result.failure(Exception("http:$code"))
             }
             val text = conn.inputStream.bufferedReader().use { it.readText() }
-            runCatching { conn.inputStream.close() }
             conn.disconnect()
             val content = runCatching {
                 JSONObject(text).getJSONArray("choices")

@@ -47,14 +47,14 @@ object PerFileMedia {
 
     // قراءة المفتاح الجانبي — null عند أي فشل (بلا كشف)
     fun parseKeyFile(master: SecretKey, keyBytes: ByteArray): SecretKey? = runCatching {
-        val lines = String(keyBytes, Charsets.UTF_8).trimEnd('\n', '\r').split("\n")
+        val lines = String(keyBytes, Charsets.UTF_8).split("\n")
         if (lines.size != 3 || lines[0] != KEY_HEADER) return null
         PerFileKeys.unwrap(master, PerFileKeys.Wrapped(b64d.decode(lines[1]), b64d.decode(lines[2])))
     }.getOrNull()
 
     // فك ظرف NOTAM2 بمفتاح ملف — null عند أي فشل
     fun decryptWithKey(fileKey: SecretKey, blob: ByteArray): ByteArray? = runCatching {
-        val lines = String(blob, Charsets.UTF_8).trimEnd('\n', '\r').split("\n")
+        val lines = String(blob, Charsets.UTF_8).split("\n")
         if (lines.size != 3 || lines[0] != HEADER2) return null
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.DECRYPT_MODE, fileKey, GCMParameterSpec(GCM_TAG_BITS, b64d.decode(lines[1])))

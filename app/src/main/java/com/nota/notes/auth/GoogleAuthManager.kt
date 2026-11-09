@@ -128,9 +128,8 @@ class GoogleAuthManager @Inject constructor(
         accounts.clear()
         // صورة الحساب تُمسح مع الخروج — لا أثر لحساب خارج
         runCatching { java.io.File(ctx.filesDir, "account_photo.jpg").delete() }
-        // منبهات outsiders and geofences cancelled immediately — فلا إيقاظ ولا إشعار في جلسة حساب آخر
+        // منبهات الخارج تُلغى فورًا — فلا إيقاظ ولا إشعار في جلسة حساب آخر
         runCatching { com.nota.notes.reminder.ReminderScheduler.cancelAll(ctx, uid) }
-        runCatching { com.nota.notes.geo.GeoScheduler.cancelAll(ctx, uid) }
         Log.i(TAG, "signed out — local notes kept")
     }
 
